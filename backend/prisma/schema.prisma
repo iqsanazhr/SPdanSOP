@@ -1,0 +1,69 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:../../data/sp-generator.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Template {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  versions    TemplateVersion[]
+  documents   Document[]
+}
+
+model TemplateVersion {
+  id          String              @id @default(uuid())
+  templateId  String
+  version     Int                 @default(1)
+  createdAt   DateTime            @default(now())
+  template    Template            @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  components  TemplateComponent[]
+}
+
+model TemplateComponent {
+  id                String          @id @default(uuid())
+  templateVersionId String
+  order             Int
+  name              String
+  defaultUraian     String          @default("")
+  templateVersion   TemplateVersion @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id             String              @id @default(uuid())
+  title          String
+  serviceType    String              @default("LEGALISASI")
+  signatoryTitle String              @default("KEPALA BADAN KEPEGAWAIAN\nDAN PENGEMBANGAN SUMBER DAYA MANUSIA\nKABUPATEN BANJARNEGARA")
+  signatoryName  String              @default("ESTI WIDODO")
+  signatureImage String?
+  templateId     String?
+  template       Template?           @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  components     DocumentComponent[]
+  versions       DocumentVersion[]
+}
+
+model DocumentComponent {
+  id         String   @id @default(uuid())
+  documentId String
+  order      Int
+  name       String
+  uraian     String   @default("")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model DocumentVersion {
+  id         String   @id @default(uuid())
+  documentId String
+  version    Int
+  snapshot   String
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}

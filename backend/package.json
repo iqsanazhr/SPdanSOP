@@ -1,0 +1,25 @@
+{
+  "name": "sp-generator-backend",
+  "version": "1.0.0",
+  "description": "Backend API for SP Generator (Node.js ES Modules)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "docx": "^9.7.1",
+    "express": "^4.21.1",
+    "html-to-docx": "^1.8.0",
+    "playwright": "^1.48.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7",
+    "prisma": "^5.22.0"
+  }
+}
