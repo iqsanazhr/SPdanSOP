@@ -15,6 +15,7 @@ import { MenuBar } from './components/MenuBar.jsx';
 import { Toolbar } from './components/Toolbar.jsx';
 import { DocumentOutline } from './components/DocumentOutline.jsx';
 import { DocumentEditor } from './components/DocumentEditor.jsx';
+import { SOPEditor } from './components/SOPEditor.jsx';
 import { AddComponentModal } from './components/AddComponentModal.jsx';
 import { TemplateSelectorModal } from './components/TemplateSelectorModal.jsx';
 import { OpenDocumentModal } from './components/OpenDocumentModal.jsx';
@@ -152,9 +153,11 @@ export const App = () => {
           signatoryTitle: updatedDoc.signatoryTitle,
           signatoryName: updatedDoc.signatoryName,
           signatureImage: updatedDoc.signatureImage,
+          ...(updatedDoc.type === 'SOP' && { contentData: updatedDoc.contentData }),
         });
 
-        await updateDocumentComponents(
+        if (updatedDoc.type !== 'SOP') {
+          await updateDocumentComponents(
           updatedDoc.id,
           updatedDoc.components.map((c) => ({
             id: c.id,
@@ -162,7 +165,8 @@ export const App = () => {
             uraian: c.uraian,
             order: c.order,
           }))
-        );
+          );
+        }
 
         setSaveStatus('saved');
       } catch (err) {
@@ -402,16 +406,19 @@ export const App = () => {
         signatoryTitle: doc.signatoryTitle,
         signatoryName: doc.signatoryName,
         signatureImage: doc.signatureImage,
+        ...(doc.type === 'SOP' && { contentData: doc.contentData }),
       });
-      await updateDocumentComponents(
-        doc.id,
-        doc.components.map((c) => ({
-          id: c.id,
-          name: c.name,
-          uraian: c.uraian,
-          order: c.order,
-        }))
-      );
+      if (doc.type !== 'SOP') {
+        await updateDocumentComponents(
+          doc.id,
+          doc.components.map((c) => ({
+            id: c.id,
+            name: c.name,
+            uraian: c.uraian,
+            order: c.order,
+          }))
+        );
+      }
       setSaveStatus('saved');
       addToast('Seluruh perubahan berhasil disimpan ✓', 'success');
     } catch (err) {
@@ -508,25 +515,34 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [doc, undoStack, redoStack]);
 
+  // PDF Export: SOP uses window.print() (WYSIWYG), SP uses modal
+  const handleExportPdf = () => {
+    if (doc?.type === 'SOP') {
+      window.print();
+    } else {
+      setShowPdfPreviewModal(true);
+    }
+  };
+
   return (
     <div className="app-container">
-      {/* TOP BAR */}
+      {/* TOP BAR — hidden on print */}
       <TopBar
         docTitle={doc?.title ?? ''}
         onTitleChange={handleTitleChange}
         saveStatus={saveStatus}
-        onExportPdf={() => setShowPdfPreviewModal(true)}
+        onExportPdf={handleExportPdf}
         onExportDocx={handleExportDocx}
         onLogoClick={() => setShowOpenDocModal(true)}
       />
 
-      {/* MENU BAR */}
+      {/* MENU BAR — hidden on print */}
       <MenuBar
         onNewDoc={() => setShowTemplateModal(true)}
         onOpenDoc={() => setShowOpenDocModal(true)}
         onMakeCopy={handleMakeCopy}
         onSave={handleManualSave}
-        onExportPdf={() => setShowPdfPreviewModal(true)}
+        onExportPdf={handleExportPdf}
         onExportDocx={handleExportDocx}
         onDeleteDoc={handleDeleteCurrentDoc}
         onUndo={handleUndo}
@@ -547,12 +563,12 @@ export const App = () => {
         onAuditComponents={handleAuditComponents}
       />
 
-      {/* TOOLBAR */}
+      {/* TOOLBAR — hidden on print */}
       <Toolbar
         editor={activeEditor}
         zoom={zoom}
         onZoomChange={(newZoom) => setZoom(newZoom)}
-        onPrint={() => setShowPdfPreviewModal(true)}
+        onPrint={handleExportPdf}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -568,8 +584,19 @@ export const App = () => {
 
         {/* DOCUMENT EDITOR CANVAS WITH RULER */}
         {doc ? (
-          <DocumentEditor
-            document={doc}
+          doc.type === 'SOP' ? (
+            <SOPEditor 
+              document={doc} 
+              zoom={zoom} 
+              onDocChange={(newDoc) => {
+                pushToUndoHistory(doc);
+                setDoc(newDoc);
+                triggerAutosave(newDoc);
+              }} 
+            />
+          ) : (
+            <DocumentEditor
+              document={doc}
             zoom={zoom}
             showRuler={showRuler}
             leftMarginMm={leftMarginMm}
@@ -602,6 +629,7 @@ export const App = () => {
             onDeleteComponent={handleDeleteComponent}
             onFocusEditor={(editor) => setActiveEditor(editor)}
           />
+          )
         ) : (
           <div className="document-viewport">
             <div style={{ padding: 32, color: '#5f6368', fontSize: 14 }}>

@@ -1178,3 +1178,105 @@ body {
 .btn-add-comp:hover {
   background: #e8f0fe;
 }
+
+/* =============================================
+   PRINT / PDF EXPORT STYLES (A4 Landscape)
+   ============================================= */
+@media print {
+  /* Set A4 Landscape */
+  @page {
+    size: A4 landscape;
+    margin: 10mm 15mm;
+  }
+
+  /* Hide EVERYTHING by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show ONLY the SOP document content */
+  .sop-print-area,
+  .sop-print-area * {
+    visibility: visible;
+  }
+
+  /* Position the print area at top-left */
+  .sop-print-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 267mm; /* A4 landscape width minus 2×15mm margin */
+    background: white;
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    color: #000;
+    padding: 0;
+    /* Remove zoom transform for print */
+    transform: none !important;
+  }
+
+  /* Force table borders to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all editor-only elements */
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Hide app chrome explicitly */
+  .top-bar,
+  .toolbar,
+  .document-outline,
+  .outline-sidebar,
+  .modal-backdrop,
+  .toast-container {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Hide input borders in print */
+  input, textarea {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    resize: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure SVG connections print */
+  svg {
+    overflow: visible !important;
+  }
+
+  /* Hide floating toolbars */
+  .floating-toolbar {
+    display: none !important;
+  }
+
+  /* Remove page break indicator */
+  .sop-page-break {
+    display: none !important;
+  }
+
+  /* Remove shadow from document paper */
+  .sop-document-paper {
+    box-shadow: none !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* Tables: ensure borders print */
+  table, td, th {
+    border-color: #000 !important;
+  }
+
+  /* Document viewport: no background, no padding */
+  .document-viewport {
+    background: white !important;
+    padding: 0 !important;
+  }
+}
