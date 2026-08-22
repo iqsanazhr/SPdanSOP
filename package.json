@@ -1,14 +1,50 @@
 {
-  "name": "sp-generator",
+  "name": "sp-sop-maker",
   "version": "1.0.0",
-  "description": "SP Generator App Root",
+  "description": "Aplikasi Penyusun Standar Pelayanan & SOP - BKPSDM",
+  "main": "electron/main.cjs",
+  "productName": "SP-SOP-Maker",
+  "author": "BKPSDM Banjarnegara",
   "scripts": {
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build"
+    "electron:dev": "concurrently -n \"BACKEND,FRONTEND,ELECTRON\" -c \"blue,green,magenta\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "npm --prefix frontend run build",
+    "dist": "npm run build && electron-builder --win --dir",
+    "dist:exe": "npm run build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.bkpsdm.sp-sop-maker",
+    "productName": "SP-SOP-Maker",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "backend/**/*",
+      "data/**/*",
+      "!**/*.map",
+      "!**/*.ts"
+    ],
+    "win": {
+      "target": [
+        "dir",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
   }
 }

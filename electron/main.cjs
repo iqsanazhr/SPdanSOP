@@ -1,0 +1,70 @@
+const { app, BrowserWindow } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
+
+let mainWindow;
+let backendProcess;
+
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+function startBackend() {
+  const backendPath = path.join(__dirname, '../backend/src/index.js');
+  
+  backendProcess = spawn(process.execPath, [backendPath], {
+    cwd: path.join(__dirname, '../backend'),
+    env: { ...process.env, PORT: '3001' },
+    stdio: 'ignore',
+  });
+
+  backendProcess.on('error', (err) => {
+    console.error('Failed to start backend process:', err);
+  });
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 700,
+    title: 'SP & SOP Maker',
+    icon: path.join(__dirname, '../frontend/public/logobanjarnegara.webp'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../frontend/dist/index.html'));
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+app.whenReady().then(() => {
+  if (!isDev) {
+    startBackend();
+  }
+
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (backendProcess) {
+    backendProcess.kill();
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
