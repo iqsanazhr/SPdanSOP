@@ -30,6 +30,7 @@
       "!**/*.ts"
     ],
     "win": {
+      "icon": "electron/icon.png",
       "target": [
         "dir",
         "nsis"
