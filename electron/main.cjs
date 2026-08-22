@@ -1,24 +1,17 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
 
 let mainWindow;
-let backendProcess;
-
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-function startBackend() {
-  const backendPath = path.join(__dirname, '../backend/src/index.js');
-  
-  backendProcess = spawn(process.execPath, [backendPath], {
-    cwd: path.join(__dirname, '../backend'),
-    env: { ...process.env, PORT: '3001' },
-    stdio: 'ignore',
-  });
-
-  backendProcess.on('error', (err) => {
-    console.error('Failed to start backend process:', err);
-  });
+async function startBackend() {
+  try {
+    const backendPath = path.join(__dirname, '../backend/src/index.js');
+    await import('file://' + backendPath.replace(/\\/g, '/'));
+    console.log('Backend Express server initialized in Electron main process');
+  } catch (err) {
+    console.error('Error starting backend in main process:', err);
+  }
 }
 
 function createWindow() {
@@ -46,9 +39,9 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!isDev) {
-    startBackend();
+    await startBackend();
   }
 
   createWindow();
@@ -61,9 +54,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
