@@ -64,6 +64,39 @@ export const TemplateSelectorModal = ({
               <div style={{ padding: 12, fontSize: 13, color: '#5f6368' }}>Memuat template...</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                {/* Opsi SOP Template */}
+                <div
+                  onClick={() => {
+                    setSelectedTemplateId('sop-template');
+                    setDocTitle('Standard Operating Procedure (SOP) - Dokumen Baru');
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 12,
+                    borderRadius: 6,
+                    border: `1px solid ${selectedTemplateId === 'sop-template' ? '#1a73e8' : '#dadce0'}`,
+                    background: selectedTemplateId === 'sop-template' ? '#e8f0fe' : '#ffffff',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <FileText size={24} color="#e37400" />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: '#202124' }}>
+                        Standard Operating Procedure (SOP)
+                      </div>
+                      <div style={{ fontSize: 12, color: '#5f6368' }}>
+                        Template bagan dan diagram alur SOP Administrasi Pemerintahan
+                      </div>
+                    </div>
+                  </div>
+                  {selectedTemplateId === 'sop-template' && <Check size={18} color="#1a73e8" />}
+                </div>
+
+                {/* Template dari DB */}
                 {templates.map((tpl) => {
                   const version = tpl.versions[0];
                   const isSelected = selectedTemplateId === tpl.id;
@@ -81,7 +114,10 @@ export const TemplateSelectorModal = ({
                   return (
                     <div
                       key={tpl.id}
-                      onClick={() => setSelectedTemplateId(tpl.id)}
+                      onClick={() => {
+                        setSelectedTemplateId(tpl.id);
+                        setDocTitle('Standar Pelayanan Publik - Dokumen Baru');
+                      }}
                       style={itemStyle}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -1,16 +1,38 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
-import { generatePdfBuffer } from '../services/pdfService.js';
+import { generatePdfBuffer, generatePdfFromHtmlBuffer } from '../services/pdfService.js';
 import { generateDocxBuffer } from '../services/docxService.js';
 
 const router = Router();
+
+// Direct PDF generation from client DOM HTML
+router.post('/pdf-html', async (req, res) => {
+  try {
+    const { html, title, isLandscape } = req.body;
+    if (!html) {
+      return res.status(400).json({ error: 'HTML content is required' });
+    }
+
+    const pdfBuffer = await generatePdfFromHtmlBuffer({ html, isLandscape: !!isLandscape });
+    const safeTitle = (title || 'Dokumen').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.end(pdfBuffer);
+  } catch (error) {
+    console.error('Error generating PDF from HTML:', error);
+    res.status(500).json({ error: 'Failed to generate PDF from HTML: ' + error.message });
+  }
+});
 
 const handlePdfExport = async (req, res) => {
   try {
     const { id } = req.params;
     let document = null;
 
-    if (req.body && req.body.components && Array.isArray(req.body.components)) {
+    if (req.body && (req.body.title || req.body.contentData || req.body.components)) {
       document = req.body;
     } else {
       document = await prisma.document.findUnique({
@@ -45,8 +67,9 @@ const handleDocxExport = async (req, res) => {
   try {
     const { id } = req.params;
     let document = null;
+    const previewHtml = req.body && req.body.html ? req.body.html : null;
 
-    if (req.body && req.body.components && Array.isArray(req.body.components)) {
+    if (req.body && (req.body.title || req.body.contentData || req.body.components)) {
       document = req.body;
     } else {
       document = await prisma.document.findUnique({
@@ -63,7 +86,7 @@ const handleDocxExport = async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    const docxBuffer = await generateDocxBuffer(document);
+    const docxBuffer = await generateDocxBuffer(document, previewHtml);
 
     const safeTitle = (document.title || 'Standar_Pelayanan').replace(/[^a-zA-Z0-9_-]/g, '_');
     res.setHeader(

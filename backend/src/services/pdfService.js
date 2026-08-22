@@ -427,6 +427,39 @@ export async function generatePdfBuffer(docData) {
   }
 }
 
+export async function generatePdfFromHtmlBuffer({ html, isLandscape = false }) {
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await page.setViewportSize(
+      isLandscape ? { width: 1123, height: 794 } : { width: 794, height: 1123 }
+    );
+
+    await page.setContent(html, { waitUntil: 'load' });
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      landscape: isLandscape,
+      printBackground: true,
+      margin: {
+        top: '0mm',
+        bottom: '0mm',
+        left: '0mm',
+        right: '0mm',
+      },
+    });
+
+    return pdfBuffer;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str

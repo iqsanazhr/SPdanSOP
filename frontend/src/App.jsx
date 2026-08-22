@@ -15,7 +15,7 @@ import { MenuBar } from './components/MenuBar.jsx';
 import { Toolbar } from './components/Toolbar.jsx';
 import { DocumentOutline } from './components/DocumentOutline.jsx';
 import { DocumentEditor } from './components/DocumentEditor.jsx';
-import { SOPEditor } from './components/SOPEditor.jsx';
+import SOPEditor from './components/SOPEditor.jsx';
 import { AddComponentModal } from './components/AddComponentModal.jsx';
 import { TemplateSelectorModal } from './components/TemplateSelectorModal.jsx';
 import { OpenDocumentModal } from './components/OpenDocumentModal.jsx';
@@ -24,6 +24,7 @@ import { DocxPreviewModal } from './components/DocxPreviewModal.jsx';
 import { ShortcutsModal } from './components/ShortcutsModal.jsx';
 import { ToastContainer } from './components/Toast.jsx';
 import { ConfirmModal } from './components/ConfirmModal.jsx';
+import { ZoomControls } from './components/ZoomControls.jsx';
 
 export const App = () => {
   const [doc, setDoc] = useState(null);
@@ -117,20 +118,36 @@ export const App = () => {
     addToast('Perubahan dikembalikan (Redo)', 'info');
   };
 
-  // Load initial demo document or latest document
+  // Load active document from localStorage or fetch latest document
   const initDocument = async () => {
     try {
+      const savedDocId = localStorage.getItem('active_doc_id');
+      if (savedDocId) {
+        try {
+          const fullDoc = await fetchDocumentById(savedDocId);
+          if (fullDoc && fullDoc.id) {
+            setDoc(fullDoc);
+            return;
+          }
+        } catch (e) {
+          console.warn('Saved document not found, fallback to latest doc');
+          localStorage.removeItem('active_doc_id');
+        }
+      }
+
       const docs = await fetchDocuments();
-      if (docs.length > 0) {
+      if (docs && docs.length > 0) {
         const fullDoc = await fetchDocumentById(docs[0].id);
         setDoc(fullDoc);
+        localStorage.setItem('active_doc_id', fullDoc.id);
       } else {
         const newDoc = await createDocument({ title: 'Standar Pelayanan Publik - Legalisasi' });
         setDoc(newDoc);
+        localStorage.setItem('active_doc_id', newDoc.id);
       }
     } catch (error) {
       console.error('Error loading initial document:', error);
-      addToast('Gagal memuat dokumen', 'error');
+      addToast('Gagal memuat dokumen, mencoba ulang...', 'error');
     }
   };
 
@@ -361,6 +378,7 @@ export const App = () => {
         title: title || 'Standar Pelayanan Publik Baru',
       });
       setDoc(newDoc);
+      localStorage.setItem('active_doc_id', newDoc.id);
       setSaveStatus('saved');
       addToast('Dokumen baru berhasil dibuat ✓', 'success');
     } catch (err) {
@@ -374,6 +392,7 @@ export const App = () => {
     try {
       const selectedDoc = await fetchDocumentById(docId);
       setDoc(selectedDoc);
+      localStorage.setItem('active_doc_id', selectedDoc.id);
       addToast(`Membuka "${selectedDoc.title}" ✓`, 'success');
     } catch (err) {
       console.error('Error opening document:', err);
@@ -515,13 +534,9 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [doc, undoStack, redoStack]);
 
-  // PDF Export: SOP uses window.print() (WYSIWYG), SP uses modal
+  // PDF Export: Open preview modal
   const handleExportPdf = () => {
-    if (doc?.type === 'SOP') {
-      window.print();
-    } else {
-      setShowPdfPreviewModal(true);
-    }
+    setShowPdfPreviewModal(true);
   };
 
   return (
@@ -577,6 +592,8 @@ export const App = () => {
         {doc && (
           <DocumentOutline
             components={doc.components}
+            docType={doc.type}
+            docData={doc}
             isOpen={showOutline}
             onToggle={() => setShowOutline(!showOutline)}
           />
@@ -694,6 +711,7 @@ export const App = () => {
       />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {doc && <ZoomControls zoom={zoom} onZoomChange={setZoom} />}
     </div>
   );
 };

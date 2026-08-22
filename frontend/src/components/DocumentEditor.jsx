@@ -470,6 +470,9 @@ export const DocumentEditor = ({
                         textTransform: 'uppercase',
                         fontFamily: 'inherit',
                         outline: 'none',
+                        overflow: 'hidden',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none'
                       }}
                     />
 

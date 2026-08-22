@@ -55,7 +55,7 @@ router.get('/:id', async (req, res) => {
 // Create new document from template or blank
 router.post('/', async (req, res) => {
   try {
-    const { templateId, title, serviceType, signatoryTitle, signatoryName } = req.body;
+    const { templateId, title, serviceType, signatoryTitle, signatoryName, type } = req.body;
 
     let initialComponents = [];
 
@@ -84,17 +84,20 @@ router.post('/', async (req, res) => {
       }
     }
 
+    const docType = type || (templateId === 'sop-template' ? 'SOP' : 'SP');
+
     const document = await prisma.document.create({
       data: {
-        title: title || 'Standar Pelayanan Publik Baru',
+        title: title || (docType === 'SOP' ? 'Standard Operating Procedure (SOP) Baru' : 'Standar Pelayanan Publik Baru'),
+        type: docType,
         serviceType: serviceType || 'LEGALISASI',
         signatoryTitle:
           signatoryTitle ||
           'KEPALA BADAN KEPEGAWAIAN\nDAN PENGEMBANGAN SUMBER DAYA MANUSIA\nKABUPATEN BANJARNEGARA',
         signatoryName: signatoryName || 'ESTI WIDODO',
-        templateId: templateId || null,
+        templateId: templateId === 'sop-template' ? null : (templateId || null),
         components: {
-          create: initialComponents,
+          create: docType === 'SOP' ? [] : initialComponents,
         },
       },
       include: {
@@ -115,7 +118,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, serviceType, signatoryTitle, signatoryName, signatureImage } = req.body;
+    const { title, serviceType, signatoryTitle, signatoryName, signatureImage, contentData } = req.body;
 
     const updatedDocument = await prisma.document.update({
       where: { id },
@@ -125,6 +128,7 @@ router.put('/:id', async (req, res) => {
         ...(signatoryTitle !== undefined && { signatoryTitle }),
         ...(signatoryName !== undefined && { signatoryName }),
         ...(signatureImage !== undefined && { signatureImage }),
+        ...(contentData !== undefined && { contentData }),
       },
     });
 

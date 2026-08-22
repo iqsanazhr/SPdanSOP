@@ -107,18 +107,61 @@ export async function downloadPdfDocument(doc) {
   document.body.removeChild(a);
 }
 
-export async function downloadDocxDocument(doc) {
+export async function downloadDocxDocument(doc, previewHtml = null) {
+  const payload = previewHtml ? { ...doc, html: previewHtml } : doc;
   const res = await fetch(`${API_BASE_URL}/export/documents/${doc.id}/docx`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(doc),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Failed to generate Word document');
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${(doc.title || 'Standar_Pelayanan').replace(/[^a-zA-Z0-9_-]/g, '_')}.docx`;
+  a.download = `${(doc.title || 'Dokumen').replace(/[/\\?%*:|"<>]/g, '_')}.docx`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+export async function exportPdfFromHtml({ html, title, isLandscape }) {
+  const res = await fetch(`${API_BASE_URL}/export/pdf-html`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, title, isLandscape }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate PDF from server');
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(title || 'Dokumen').replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+export async function exportDocxFromHtml({ html, title, isLandscape }) {
+  const res = await fetch(`${API_BASE_URL}/export/docx-html`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, title, isLandscape }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate Word document from server');
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(title || 'Dokumen').replace(/[/\\?%*:|"<>]/g, '_')}.docx`;
   document.body.appendChild(a);
   a.click();
   window.URL.revokeObjectURL(url);

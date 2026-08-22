@@ -38,6 +38,8 @@ model TemplateComponent {
 model Document {
   id             String              @id @default(uuid())
   title          String
+  type           String              @default("SP")
+  contentData    String?
   serviceType    String              @default("LEGALISASI")
   signatoryTitle String              @default("KEPALA BADAN KEPEGAWAIAN\nDAN PENGEMBANGAN SUMBER DAYA MANUSIA\nKABUPATEN BANJARNEGARA")
   signatoryName  String              @default("ESTI WIDODO")

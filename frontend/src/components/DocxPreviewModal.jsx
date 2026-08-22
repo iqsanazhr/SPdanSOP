@@ -1,18 +1,553 @@
 import React from 'react';
-import { X, Download, FileSpreadsheet } from 'lucide-react';
-import { downloadDocxDocument } from '../api/client.js';
+import { X, Download, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { downloadDocxDocument, exportDocxFromHtml } from '../api/client.js';
+
+function parseHtmlBlocks(html) {
+  if (!html) return [];
+  const div = window.document.createElement('div');
+  div.innerHTML = html;
+  const blocks = [];
+
+  if (div.children.length > 0) {
+    Array.from(div.children).forEach((child) => {
+      const outer = child.outerHTML;
+      const clean = child.textContent || '';
+      blocks.push({ html: outer, cleanText: clean });
+    });
+  } else {
+    const paragraphs = html.split(/\n+/).filter(Boolean);
+    paragraphs.forEach((p) => {
+      blocks.push({ html: `<p>${p}</p>`, cleanText: p });
+    });
+  }
+
+  return blocks;
+}
+
+function splitLongBlock(blockHtml, maxChars) {
+  const clean = blockHtml.replace(/<[^>]*>/g, '');
+  if (clean.length <= maxChars) return [blockHtml, ''];
+
+  let cutIdx = maxChars;
+  for (let i = maxChars; i > Math.max(10, maxChars - 30); i--) {
+    if (/[\s\n%&=/?#_\-.]/.test(clean[i])) {
+      cutIdx = i;
+      break;
+    }
+  }
+
+  const p1 = clean.substring(0, cutIdx);
+  const p2 = clean.substring(cutIdx);
+
+  return [`<p>${p1}</p>`, `<p>${p2}</p>`];
+}
 
 export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
   if (!isOpen || !docData) return null;
 
-  const handleDownload = () => {
-    downloadDocxDocument(docData).catch((err) => console.error(err));
+  const [isExporting, setIsExporting] = React.useState(false);
+  const [exportProgress, setExportProgress] = React.useState('');
+
+  const handleDownload = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportProgress('Menyiapkan dokumen Word...');
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const isSopDoc = docData.type === 'SOP';
+      const modalBody = window.document.querySelector('.modal-backdrop .modal-body');
+      let fullHtml = null;
+
+      if (modalBody) {
+        const sheets = isSopDoc
+          ? Array.from(modalBody.querySelectorAll('.sop-print-sheet, .a4-paper-sheet-landscape'))
+          : Array.from(modalBody.querySelectorAll('.a4-paper-sheet'));
+
+        if (sheets.length > 0) {
+          fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${docData.title || 'Dokumen'}</title>
+  <style>
+    @page { size: ${isSopDoc ? '297mm 210mm' : '210mm 297mm'}; margin: 0; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body { margin: 0; padding: 0; background: #ffffff; font-family: Arial, sans-serif; color: #000000; }
+    .sop-print-sheet, .a4-paper-sheet, .a4-paper-sheet-landscape { box-shadow: none !important; margin: 0 auto !important; page-break-after: always !important; }
+    .page-number-footer { display: none !important; }
+    table { border-collapse: collapse; }
+  </style>
+</head>
+<body>
+  ${sheets.map((s) => s.outerHTML).join('\n')}
+</body>
+</html>`;
+        }
+      }
+
+      setExportProgress('Mengunduh file Word (.docx)...');
+      await downloadDocxDocument(docData, fullHtml);
+    } catch (err) {
+      console.error('Gagal mengekspor Word (.docx):', err);
+      alert('Terjadi kesalahan saat mengunduh dokumen Word: ' + (err.message || err));
+    } finally {
+      setIsExporting(false);
+      setExportProgress('');
+    }
   };
 
-  const sigTitle =
+  const rawSigTitle =
     docData.signatoryTitle ||
     'KEPALA BADAN KEPEGAWAIAN\nDAN PENGEMBANGAN SUMBER DAYA MANUSIA\nKABUPATEN BANJARNEGARA';
-  const sigName = docData.signatoryName || 'ESTI WIDODO';
+  const rawSigName = docData.signatoryName || 'ESTI WIDODO';
+
+  const sigTitle = (rawSigTitle || '').replace(/[<>]/g, '');
+  const sigName = (rawSigName || '').replace(/[<>]/g, '');
+
+  const isSop = docData.type === 'SOP';
+
+  const sopContent = React.useMemo(() => {
+    if (!isSop) return {};
+    try {
+      return typeof docData.contentData === 'string' ? JSON.parse(docData.contentData || '{}') : (docData.contentData || {});
+    } catch (e) {
+      return {};
+    }
+  }, [isSop, docData.contentData]);
+
+  const identity = sopContent.identity || {};
+  const actors = (sopContent.actors && sopContent.actors.length > 0) ? sopContent.actors : ['Pelaksana 1'];
+  const steps = sopContent.steps || [];
+  const connections = sopContent.connections || [];
+
+  const normalizedSteps = React.useMemo(() => {
+    return steps.map(step => {
+      if (!step.nodes) {
+        const newNodes = {};
+        if (step.pelaksanaIds) {
+          step.pelaksanaIds.forEach(id => {
+            newNodes[id] = [step.symbol || 'kotak'];
+          });
+        }
+        return { ...step, nodes: newNodes };
+      } else {
+        const newNodes = {};
+        Object.keys(step.nodes).forEach(key => {
+           const val = step.nodes[key];
+           newNodes[key] = Array.isArray(val) ? val : [val];
+        });
+        return { ...step, nodes: newNodes };
+      }
+    });
+  }, [steps]);
+
+  const FLOWCHART_PAGE_CAPACITY = 580;
+  const FLOWCHART_HEADER_HEIGHT = 65;
+  const SIGNATURE_HEIGHT = 140;
+
+  const flowchartPages = React.useMemo(() => {
+    if (normalizedSteps.length === 0) return [[]];
+
+    const pages = [];
+    let currentPage = [];
+    let currentH = FLOWCHART_HEADER_HEIGHT;
+
+    for (let idx = 0; idx < normalizedSteps.length; idx++) {
+      const step = normalizedSteps[idx];
+      
+      const uraianLines = Math.max(1, Math.ceil((step.uraian || '').length / 30));
+      const reqLines = Math.max(1, Math.ceil((step.mutuBaku?.persyaratan || '').length / 14));
+      const outLines = Math.max(1, Math.ceil((step.mutuBaku?.output || '').length / 12));
+      const maxTextLines = Math.max(uraianLines, reqLines, outLines);
+
+      let maxShapeH = 20;
+      if (step.nodes) {
+        Object.values(step.nodes).forEach(arr => {
+          if (Array.isArray(arr) && arr.length > 1) {
+            maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 10);
+          }
+        });
+      }
+
+      const textH = maxTextLines * 16 + 12;
+      const rowH = Math.max(45, textH, maxShapeH + 12);
+
+      if (currentH + rowH <= FLOWCHART_PAGE_CAPACITY) {
+        currentPage.push({ step, originalIndex: idx, isContinuation: false });
+        currentH += rowH;
+      } else {
+        if (currentPage.length > 0) {
+          pages.push(currentPage);
+        }
+        currentPage = [{ step, originalIndex: idx, isContinuation: false }];
+        currentH = FLOWCHART_HEADER_HEIGHT + rowH;
+      }
+    }
+
+    if (currentPage.length > 0) {
+      if (currentH + SIGNATURE_HEIGHT > FLOWCHART_PAGE_CAPACITY) {
+        pages.push(currentPage);
+        pages.push([]);
+      } else {
+        pages.push(currentPage);
+      }
+    }
+
+    return pages;
+  }, [normalizedSteps]);
+
+  const [previewLineCoords, setPreviewLineCoords] = React.useState([]);
+
+  const renderPreviewLinePath = (x1, y1, p1, x2, y2, p2) => {
+    const r = (n) => Math.round(n * 10) / 10;
+    x1 = r(x1); y1 = r(y1);
+    x2 = r(x2); y2 = r(y2);
+
+    if (p2 && Math.abs(y1 - y2) < 4 && ((p1 === 'right' && p2 === 'left') || (p1 === 'left' && p2 === 'right'))) {
+      return `M ${x1} ${y1} L ${x2} ${y1}`;
+    }
+
+    if (p2 && Math.abs(x1 - x2) < 4 && ((p1 === 'bottom' && p2 === 'top') || (p1 === 'top' && p2 === 'bottom'))) {
+      return `M ${x1} ${y1} L ${x1} ${y2}`;
+    }
+
+    const OFFSET = 18;
+    const out1 = { x: x1, y: y1 };
+    if (p1 === 'top') out1.y -= OFFSET;
+    if (p1 === 'bottom') out1.y += OFFSET;
+    if (p1 === 'left') out1.x -= OFFSET;
+    if (p1 === 'right') out1.x += OFFSET;
+
+    const out2 = { x: x2, y: y2 };
+    if (p2 === 'top') out2.y -= OFFSET;
+    if (p2 === 'bottom') out2.y += OFFSET;
+    if (p2 === 'left') out2.x -= OFFSET;
+    if (p2 === 'right') out2.x += OFFSET;
+
+    const isVert1 = p1 === 'top' || p1 === 'bottom';
+    const isVert2 = p2 === 'top' || p2 === 'bottom';
+
+    let path = `M ${x1} ${y1} L ${out1.x} ${out1.y}`;
+
+    if (isVert1 && isVert2) {
+      if (p1 === 'bottom' && p2 === 'bottom') {
+        const midY = Math.max(out1.y, out2.y) + OFFSET;
+        path += ` L ${out1.x} ${midY} L ${out2.x} ${midY}`;
+      } else if (p1 === 'top' && p2 === 'top') {
+        const midY = Math.min(out1.y, out2.y) - OFFSET;
+        path += ` L ${out1.x} ${midY} L ${out2.x} ${midY}`;
+      } else {
+        if ((p1 === 'bottom' && out1.y > out2.y) || (p1 === 'top' && out1.y < out2.y)) {
+          const midX = r(out1.x + (out2.x - out1.x) / 2);
+          path += ` L ${out1.x} ${out1.y} L ${midX} ${out1.y} L ${midX} ${out2.y} L ${out2.x} ${out2.y}`;
+        } else {
+          const midY = r(out1.y + (out2.y - out1.y) / 2);
+          path += ` L ${out1.x} ${midY} L ${out2.x} ${midY}`;
+        }
+      }
+    } else if (!isVert1 && !isVert2) {
+      if (p1 === 'right' && p2 === 'right') {
+        const midX = Math.max(out1.x, out2.x) + OFFSET;
+        path += ` L ${midX} ${out1.y} L ${midX} ${out2.y}`;
+      } else if (p1 === 'left' && p2 === 'left') {
+        const midX = Math.min(out1.x, out2.x) - OFFSET;
+        path += ` L ${midX} ${out1.y} L ${midX} ${out2.y}`;
+      } else {
+        if ((p1 === 'right' && out1.x > out2.x) || (p1 === 'left' && out1.x < out2.x)) {
+          const midY = r(out1.y + (out2.y - out1.y) / 2);
+          path += ` L ${out1.x} ${midY} L ${out2.x} ${midY}`;
+        } else {
+          const midX = r(out1.x + (out2.x - out1.x) / 2);
+          path += ` L ${midX} ${out1.y} L ${midX} ${out2.y}`;
+        }
+      }
+    } else {
+      if (isVert1) {
+        if ((p1 === 'bottom' && out2.y > out1.y) || (p1 === 'top' && out2.y < out1.y)) {
+          path += ` L ${out1.x} ${out2.y}`;
+        } else {
+          path += ` L ${out2.x} ${out1.y}`;
+        }
+      } else {
+        if ((p1 === 'right' && out2.x > out1.x) || (p1 === 'left' && out2.x < out2.x)) {
+          path += ` L ${out2.x} ${out1.y}`;
+        } else {
+          path += ` L ${out1.x} ${out2.y}`;
+        }
+      }
+    }
+
+    path += ` L ${out2.x} ${out2.y} L ${x2} ${y2}`;
+    return path;
+  };
+
+  const renderCrossPagePath = (x1, y1, p1, x2, y2, p2, crossType) => {
+    const r = (n) => Math.round(n * 10) / 10;
+    x1 = r(x1); y1 = r(y1);
+    x2 = r(x2); y2 = r(y2);
+
+    if (crossType === 'exit') {
+      if (Math.abs(x1 - x2) < 4) {
+        return `M ${x1} ${y1} L ${x1} ${y2}`;
+      }
+      if (p1 === 'left' || p1 === 'right') {
+        return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`;
+      } else {
+        const turnY = r(Math.min(y2 - 12, y1 + 15));
+        return `M ${x1} ${y1} L ${x1} ${turnY} L ${x2} ${turnY} L ${x2} ${y2}`;
+      }
+    }
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  };
+
+  React.useEffect(() => {
+    if (!isOpen || !isSop) return;
+    const timer = setTimeout(() => {
+      const coords = [];
+
+      const stepToPage = {};
+      flowchartPages.forEach((pageItems, pageIdx) => {
+        pageItems.forEach((item) => {
+          stepToPage[item.originalIndex] = pageIdx;
+        });
+      });
+
+      connections.forEach((conn) => {
+        const fromSub = conn.from.subIndex !== undefined ? conn.from.subIndex : 0;
+        const toSub = conn.to.subIndex !== undefined ? conn.to.subIndex : 0;
+        const fromEl = window.document.getElementById(`docx-prev-symbol-${conn.from.s}-${conn.from.a}-${fromSub}`);
+        const toEl = window.document.getElementById(`docx-prev-symbol-${conn.to.s}-${conn.to.a}-${toSub}`);
+
+        if (fromEl && toEl) {
+          const fromSheet = fromEl.closest('.a4-paper-sheet-landscape');
+          const toSheet   = toEl.closest('.a4-paper-sheet-landscape');
+
+          if (fromSheet && toSheet) {
+            const fromSheetRect = fromSheet.getBoundingClientRect();
+            const toSheetRect   = toSheet.getBoundingClientRect();
+            const shape1El = fromEl.querySelector('polygon, rect') || fromEl;
+            const shape2El = toEl.querySelector('polygon, rect') || toEl;
+            const r1 = shape1El.getBoundingClientRect();
+            const r2 = shape2El.getBoundingClientRect();
+
+            const scale1X = fromSheetRect.width / 1122.52;
+            const scale1Y = fromSheetRect.height / 793.70;
+
+            const el1Left = (r1.left - fromSheetRect.left) / scale1X;
+            const el1Top = (r1.top - fromSheetRect.top) / scale1Y;
+            const el1Width = r1.width / scale1X;
+            const el1Height = r1.height / scale1Y;
+
+            const cx1 = el1Left + el1Width / 2;
+            const cy1 = el1Top + el1Height / 2;
+
+            const scale2X = toSheetRect.width / 1122.52;
+            const scale2Y = toSheetRect.height / 793.70;
+
+            const el2Left = (r2.left - toSheetRect.left) / scale2X;
+            const el2Top = (r2.top - toSheetRect.top) / scale2Y;
+            const el2Width = r2.width / scale2X;
+            const el2Height = r2.height / scale2Y;
+
+            const cx2 = el2Left + el2Width / 2;
+            const cy2 = el2Top + el2Height / 2;
+
+            let p1 = conn.from.port || 'bottom';
+            let p2 = conn.to.port || 'top';
+
+            let x1 = cx1, y1 = cy1, x2 = cx2, y2 = cy2;
+            if (p1 === 'top') { x1 = cx1; y1 = el1Top; }
+            else if (p1 === 'bottom') { x1 = cx1; y1 = el1Top + el1Height; }
+            else if (p1 === 'left') { x1 = el1Left; y1 = cy1; }
+            else if (p1 === 'right') { x1 = el1Left + el1Width; y1 = cy1; }
+
+            if (p2 === 'top') { x2 = cx2; y2 = el2Top; }
+            else if (p2 === 'bottom') { x2 = cx2; y2 = el2Top + el2Height; }
+            else if (p2 === 'left') { x2 = el2Left; y2 = cy2; }
+            else if (p2 === 'right') { x2 = el2Left + el2Width; y2 = cy2; }
+
+            const fromPageIdx = stepToPage[conn.from.s];
+            const toPageIdx = stepToPage[conn.to.s];
+
+            if (fromPageIdx !== undefined && fromPageIdx === toPageIdx) {
+              coords.push({ x1, y1, p1, x2, y2, p2, fromS: conn.from.s, toS: conn.to.s, isCrossPage: false });
+            } else {
+              const fromTable = fromSheet.querySelector('table');
+              const toTable   = toSheet.querySelector('table');
+              const toTbody   = toTable ? toTable.querySelector('tbody') : null;
+
+              const fromTableBottom = fromTable 
+                ? (fromTable.getBoundingClientRect().bottom - fromSheetRect.top) / scale1Y 
+                : 793.70 - 40;
+
+              const toTbodyTop = toTbody 
+                ? ((toTbody.getBoundingClientRect().top - toSheetRect.top) / scale2Y)
+                : (toTable ? ((toTable.getBoundingClientRect().top - toSheetRect.top) / scale2Y) : 69);
+
+              coords.push({
+                x1, y1, p1,
+                x2, y2: fromTableBottom, p2: 'bottom',
+                fromS: conn.from.s, toS: conn.to.s,
+                isCrossPage: true, crossType: 'exit'
+              });
+
+              coords.push({
+                x1: x2, y1: toTbodyTop, p1: 'top',
+                x2, y2, p2,
+                fromS: conn.from.s, toS: conn.to.s,
+                isCrossPage: true, crossType: 'entry'
+              });
+            }
+          }
+        }
+      });
+      setPreviewLineCoords(coords);
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, isSop, flowchartPages, connections]);
+
+  const paginateDocumentComponents = () => {
+    const components = docData.components || [];
+    if (components.length === 0) return [[]];
+
+    const page1Capacity = 808;
+    const nextPageCapacity = 918;
+    const sigHeight = 190;
+
+    const pages = [];
+    let currentPage = [];
+    let currentH = 0;
+    let pageIdx = 0;
+
+    for (let i = 0; i < components.length; i++) {
+      const comp = components[i];
+      const isLastComp = i === components.length - 1;
+      const capacity = pageIdx === 0 ? page1Capacity : nextPageCapacity;
+      const neededSig = isLastComp ? sigHeight : 0;
+
+      const blocks = parseHtmlBlocks(comp.uraian || '');
+      const nameLines = Math.max(1, Math.ceil((comp.name || '').length / 25));
+      const nameH = nameLines * 22 + 20;
+
+      const blockHeights = blocks.map((b) => {
+        const lines = Math.max(1, Math.ceil(b.cleanText.length / 50));
+        return lines * 22 + 8;
+      });
+      const totalBlocksH = blockHeights.reduce((a, b) => a + b, 0);
+      const compFullH = Math.max(nameH, totalBlocksH);
+
+      if (currentH + compFullH + neededSig <= capacity) {
+        currentPage.push({
+          id: comp.id,
+          order: comp.order,
+          name: comp.name,
+          uraian: comp.uraian,
+          indentMm: comp.indentMm,
+        });
+        currentH += compFullH;
+      } else {
+        const availH = capacity - currentH - nameH - 16;
+
+        if (availH > 50) {
+          const p1Blocks = [];
+          const p2Blocks = [];
+          let fitH = nameH;
+
+          for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
+            const bH = blockHeights[bIdx];
+            const remCap = capacity - currentH - fitH;
+
+            if (remCap >= bH) {
+              p1Blocks.push(blocks[bIdx].html);
+              fitH += bH;
+            } else if (remCap > 40) {
+              const maxCharsForPage1 = Math.max(30, Math.floor(((remCap - 16) / 22) * 50));
+              const [p1Html, p2Html] = splitLongBlock(blocks[bIdx].html, maxCharsForPage1);
+              if (p1Html) p1Blocks.push(p1Html);
+              if (p2Html) p2Blocks.push(p2Html);
+              for (let remainingIdx = bIdx + 1; remainingIdx < blocks.length; remainingIdx++) {
+                p2Blocks.push(blocks[remainingIdx].html);
+              }
+              break;
+            } else {
+              for (let remainingIdx = bIdx; remainingIdx < blocks.length; remainingIdx++) {
+                p2Blocks.push(blocks[remainingIdx].html);
+              }
+              break;
+            }
+          }
+
+          if (p1Blocks.length > 0 && p2Blocks.length > 0) {
+            currentPage.push({
+              id: comp.id,
+              order: comp.order,
+              name: comp.name,
+              uraian: p1Blocks.join(''),
+              indentMm: comp.indentMm,
+            });
+            pages.push(currentPage);
+
+            currentPage = [
+              {
+                id: `${comp.id}-cont-${pageIdx + 1}`,
+                order: undefined,
+                name: '',
+                uraian: p2Blocks.join(''),
+                indentMm: comp.indentMm,
+                isContinuation: true,
+              },
+            ];
+            currentH = p2Blocks.reduce((acc, b) => {
+              const clean = b.replace(/<[^>]*>/g, '');
+              return acc + Math.max(1, Math.ceil(clean.length / 50)) * 22 + 8;
+            }, 30);
+            pageIdx++;
+          } else {
+            if (currentPage.length > 0) {
+              pages.push(currentPage);
+              pageIdx++;
+            }
+            currentPage = [
+              {
+                id: comp.id,
+                order: comp.order,
+                name: comp.name,
+                uraian: comp.uraian,
+                indentMm: comp.indentMm,
+              },
+            ];
+            currentH = compFullH;
+          }
+        } else {
+          if (currentPage.length > 0) {
+            pages.push(currentPage);
+            pageIdx++;
+          }
+          currentPage = [
+            {
+              id: comp.id,
+              order: comp.order,
+              name: comp.name,
+              uraian: comp.uraian,
+              indentMm: comp.indentMm,
+            },
+          ];
+          currentH = compFullH;
+        }
+      }
+    }
+
+    if (currentPage.length > 0 || pages.length === 0) {
+      pages.push(currentPage);
+    }
+
+    return pages;
+  };
+
+  const pageGroups = paginateDocumentComponents();
 
   return (
     <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 12000 }}>
@@ -20,8 +555,8 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
         className="modal-card"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '225mm',
-          maxWidth: '95vw',
+          width: isSop ? '315mm' : '225mm',
+          maxWidth: '96vw',
           height: '90vh',
           padding: 16,
           zIndex: 12001,
@@ -32,219 +567,462 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <FileSpreadsheet size={20} color="#2b579a" />
-            <span style={{ fontSize: 16, fontWeight: 600 }}>Pratinjau Dokumen Word (.docx)</span>
+            <h2 style={{ fontSize: 16, margin: 0, color: '#202124' }}>
+              Pratinjau Dokumen Word (.docx) - {docData.title}
+            </h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               className="btn-primary"
               onClick={handleDownload}
-              style={{ background: '#2b579a', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              disabled={isExporting}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                background: '#2b579a',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 4,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: isExporting ? 'not-allowed' : 'pointer',
+                opacity: isExporting ? 0.8 : 1,
+              }}
+              title="Download Dokumen Word (.docx)"
             >
-              <Download size={15} />
-              <span>Download Word (.docx)</span>
+              {isExporting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>{exportProgress || 'Mengunduh...'}</span>
+                </>
+              ) : (
+                <>
+                  <Download size={16} />
+                  <span>Download Word (.docx)</span>
+                </>
+              )}
             </button>
-            <button
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5f6368' }}
-              onClick={onClose}
-            >
-              <X size={20} />
+            <button className="modal-close-btn" onClick={onClose} disabled={isExporting}>
+              <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* CONTINUOUS FLOW PREVIEW - MATCHES EDITOR & WORD */}
         <div
+          className="modal-body"
           style={{
-            flex: 1,
+            backgroundColor: '#525659',
+            padding: '24px 16px',
             overflowY: 'auto',
-            background: '#525659',
-            padding: '24px 0',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            borderRadius: 6,
+            gap: 28,
           }}
         >
-          <div
-            style={{
-              width: '210mm',
-              minHeight: '297mm',
-              background: '#ffffff',
-              padding: '20mm 15mm 24mm 15mm',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              fontFamily: 'Arial, sans-serif',
-              fontSize: '11pt',
-              lineHeight: 1.5,
-              color: '#000000',
-              boxSizing: 'border-box',
-              marginBottom: 24,
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* HEADER */}
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: '14pt',
-                  fontWeight: 'bold',
-                  marginBottom: 10,
-                  textAlign: 'center',
-                }}
-              >
-                STANDAR PELAYANAN PUBLIK
-              </div>
-              <div style={{ fontSize: '11pt', fontWeight: 'bold', textAlign: 'left' }}>
-                JENIS LAYANAN : {docData.serviceType || 'LEGALISASI'}
-              </div>
-            </div>
-
-            {/* SINGLE CONTINUOUS TABLE - ALL COMPONENTS */}
-            {docData.components.length > 0 && (
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '10.5pt',
-                  tableLayout: 'fixed',
-                }}
-              >
-                <thead>
-                  <tr>
-                    <th
-                      style={{
-                        border: '1px solid #000',
-                        padding: 8,
-                        backgroundColor: '#f2f2f2',
-                        width: '6%',
-                        textAlign: 'center',
-                        overflowWrap: 'break-word',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      NO
-                    </th>
-                    <th
-                      style={{
-                        border: '1px solid #000',
-                        padding: 8,
-                        backgroundColor: '#f2f2f2',
-                        width: '32%',
-                        textAlign: 'center',
-                        overflowWrap: 'break-word',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      KOMPONEN
-                    </th>
-                    <th
-                      style={{
-                        border: '1px solid #000',
-                        padding: 8,
-                        backgroundColor: '#f2f2f2',
-                        width: '62%',
-                        textAlign: 'center',
-                        overflowWrap: 'break-word',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      URAIAN
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {docData.components.map((comp) => (
-                    <tr key={comp.id}>
-                      <td
-                        style={{
-                          border: '1px solid #000',
-                          padding: 8,
-                          textAlign: 'center',
-                          verticalAlign: 'top',
-                          overflowWrap: 'break-word',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {comp.order}.
-                      </td>
-                      <td
-                        style={{
-                          border: '1px solid #000',
-                          padding: 8,
-                          fontWeight: 'bold',
-                          verticalAlign: 'top',
-                          overflowWrap: 'break-word',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {comp.name}
-                      </td>
-                      <td
-                        style={{
-                          border: '1px solid #000',
-                          padding: 8,
-                          verticalAlign: 'top',
-                          paddingLeft: comp.indentMm ? `${comp.indentMm}mm` : '8px',
-                          overflowWrap: 'break-word',
-                          wordBreak: 'break-word',
-                        }}
-                        dangerouslySetInnerHTML={{ __html: comp.uraian || '' }}
-                      />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {/* SIGNATURE BLOCK */}
-            <div
-              style={{
-                marginTop: 36,
-                marginLeft: 'auto',
-                width: 360,
-                textAlign: 'center',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '10.5pt',
-                  fontWeight: 'bold',
-                  lineHeight: 1.3,
-                  textTransform: 'uppercase',
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {sigTitle}
-              </div>
-              <div
-                style={{
-                  minHeight: 80,
+          {isSop ? (
+            <div className="sop-preview-wrapper" style={{ width: '100%' }}>
+              {/* HALAMAN 1: IDENTITAS SOP */}
+              <div 
+                className="a4-paper-sheet-landscape sop-print-sheet sop-print-page-1"
+                style={{ 
+                  width: '297mm', 
+                  height: '210mm', 
+                  background: '#ffffff', 
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.3)', 
+                  padding: '12mm 15mm 15mm 15mm', 
+                  boxSizing: 'border-box',
+                  position: 'relative',
+                  fontSize: '10pt',
+                  fontFamily: 'Arial, sans-serif',
+                  color: '#000',
+                  margin: '0 auto 20px auto',
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
                   justifyContent: 'center',
-                  margin: '8px 0',
+                  alignItems: 'center',
+                  overflow: 'hidden',
                 }}
               >
-                {docData.signatureImage && (
-                  <img
-                    src={docData.signatureImage}
-                    alt="Cap & Tanda Tangan"
-                    style={{ maxHeight: 90, maxWidth: 280, objectFit: 'contain' }}
-                  />
-                )}
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', margin: '0 auto' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ border: '1px solid #000', width: '30%', textAlign: 'center', padding: 10 }}>
+                        <div style={{ width: 80, height: 80, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img 
+                            src={identity.logoImage || '/logobanjarnegara.webp'} 
+                            alt="Logo Banjarnegara" 
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                          />
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: '11pt', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          {identity.namaInstansi || 'PEMERINTAH KABUPATEN BANJARNEGARA'}
+                        </div>
+                        <div style={{ fontSize: '10pt', color: '#3c4043' }}>
+                          {identity.namaOrganisasi || ''}
+                        </div>
+                      </td>
+                      <td style={{ border: '1px solid #000', width: '45%', padding: '8px 12px', verticalAlign: 'top' }}>
+                        <table style={{ width: '100%', fontSize: '9.5pt', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            <tr><td width="38%" style={{ padding: '3px 0', verticalAlign: 'top' }}>Nomor SOP</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0' }}>{identity.nomorSOP !== undefined ? identity.nomorSOP : 'SOP/BKPSDM/2026/001'}</td></tr>
+                            <tr><td style={{ padding: '3px 0', verticalAlign: 'top' }}>Tanggal Pembuatan</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0' }}>{identity.tanggalPembuatan !== undefined ? identity.tanggalPembuatan : '2 Januari 2026'}</td></tr>
+                            <tr><td style={{ padding: '3px 0', verticalAlign: 'top' }}>Tanggal Revisi</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0' }}>{identity.tanggalRevisi !== undefined ? identity.tanggalRevisi : '-'}</td></tr>
+                            <tr><td style={{ padding: '3px 0', verticalAlign: 'top' }}>Tanggal Pengesahan</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0' }}>{identity.tanggalPengesahan !== undefined ? identity.tanggalPengesahan : '5 Januari 2026'}</td></tr>
+                            <tr><td style={{ padding: '3px 0', verticalAlign: 'top' }}>Disahkan Oleh</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0', fontWeight: 'bold' }}>{identity.disahkanOlehJabatan !== undefined ? identity.disahkanOlehJabatan : 'Kepala Badan Kepegawaian dan Pengembangan Sumber Daya Manusia'}</td></tr>
+                            <tr><td style={{ padding: '3px 0', verticalAlign: 'top' }}>Nama SOP</td><td style={{ padding: '3px 0', verticalAlign: 'top' }}>:</td><td style={{ padding: '3px 0', fontWeight: 'bold' }}>{docData.title}</td></tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>DASAR HUKUM</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.dasarHukum !== undefined ? identity.dasarHukum : '1. Peraturan Menteri PAN & RB Nomor 35 Tahun 2012 tentang Pedoman Penyusunan SOP Administrasi Pemerintahan.\n2. Peraturan Daerah Kabupaten Banjarnegara tentang Organisasi dan Tata Kerja.'}
+                        </div>
+                      </td>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>KUALIFIKASI PELAKSANA</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.kualifikasiPelaksana !== undefined ? identity.kualifikasiPelaksana : '1. Pendidikan minimal D3 / S1 Administrasi / Ilmu Komputer.\n2. Memahami prosedur dan regulasi penyusunan serta pelayanan standar.'}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>KETERKAITAN</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.keterkaitan !== undefined ? identity.keterkaitan : '1. SOP Pelayanan Administrasi Publik.\n2. SOP Pengelolaan Surat Masuk dan Keluar.'}
+                        </div>
+                      </td>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>PERALATAN/PERLENGKAPAN</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.peralatanPerlengkapan !== undefined ? identity.peralatanPerlengkapan : '1. Komputer/Laptop, Printer, Scanner, dan Jaringan Internet.\n2. Alat Tulis Kantor (ATK) & Map Berkas.'}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>PERINGATAN</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.peringatan !== undefined ? identity.peringatan : 'Jika SOP ini tidak dilaksanakan, proses pelayanan standar tidak akan berjalan secara optimal dan tepat waktu.'}
+                        </div>
+                      </td>
+                      <td style={{ border: '1px solid #000', padding: 8, verticalAlign: 'top' }}>
+                        <strong>PENCATATAN DAN PENDATAAN</strong><br/>
+                        <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>
+                          {identity.pencatatan !== undefined ? identity.pencatatan : 'Disimpan dalam bentuk arsip fisik (hardcopy) pada file cabinet dan arsip digital (softcopy) dalam sistem database.'}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div
-                style={{
-                  fontSize: '11pt',
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {sigName}
-              </div>
+
+              {/* HALAMAN FLOWCHART */}
+              {flowchartPages.map((pageItems, pageIdx) => {
+                const isLastFlowchartPage = pageIdx === flowchartPages.length - 1;
+                const totalSopPages = 1 + flowchartPages.length;
+
+                return (
+                  <div 
+                    key={pageIdx}
+                    className="a4-paper-sheet-landscape sop-print-sheet sop-print-page-2"
+                    style={{ 
+                      width: '297mm', 
+                      minHeight: '210mm', 
+                      background: '#ffffff', 
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.3)', 
+                      padding: '12mm 15mm 15mm 15mm', 
+                      boxSizing: 'border-box',
+                      position: 'relative',
+                      fontSize: '10pt',
+                      fontFamily: 'Arial, sans-serif',
+                      color: '#000',
+                      margin: '0 auto 20px auto',
+                    }}
+                  >
+                    <svg 
+                      viewBox="0 0 1122.52 793.70"
+                      style={{
+                        position: 'absolute', top: 0, left: 0,
+                        width: '100%', height: '100%',
+                        overflow: 'visible',
+                        pointerEvents: 'none',
+                        zIndex: 10
+                      }}
+                    >
+                      <defs>
+                        <marker id="arrow-docx-prev" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+                        </marker>
+                      </defs>
+                      {(() => {
+                        const stepIndices = new Set(pageItems.map(item => item.originalIndex));
+                        return previewLineCoords
+                          .filter(c => {
+                            if (c.isCrossPage) {
+                              return c.crossType === 'exit' ? stepIndices.has(c.fromS) : stepIndices.has(c.toS);
+                            }
+                            return stepIndices.has(c.fromS) && stepIndices.has(c.toS);
+                          })
+                          .map((c, i) => (
+                            <path 
+                              key={i} 
+                              d={c.isCrossPage ? renderCrossPagePath(c.x1, c.y1, c.p1, c.x2, c.y2, c.p2, c.crossType) : renderPreviewLinePath(c.x1, c.y1, c.p1, c.x2, c.y2, c.p2)} 
+                              fill="none" stroke="#000" strokeWidth="1.5" markerEnd="url(#arrow-docx-prev)" 
+                            />
+                          ));
+                      })()}
+                    </svg>
+                    <div style={{ marginBottom: 10, fontWeight: 'bold', fontSize: '11pt' }}>
+                      Bagan Alir (Flowchart) {flowchartPages.length > 1 ? `- Hal ${pageIdx + 2}` : ''}
+                    </div>
+
+                    {pageItems.length > 0 && (
+                      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', textAlign: 'center', fontSize: '9pt', marginTop: 6 }}>
+                        <thead>
+                          <tr>
+                            <th rowSpan="2" style={{ border: '1px solid #000', width: 30, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>No</th>
+                            <th rowSpan="2" style={{ border: '1px solid #000', width: 210, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Uraian Prosedur/Aktivitas</th>
+                            <th colSpan={Math.max(1, actors.length)} style={{ border: '1px solid #000', padding: 4, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Pelaksana</th>
+                            <th colSpan="3" style={{ border: '1px solid #000', padding: 4, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Mutu Baku</th>
+                            <th rowSpan="2" style={{ border: '1px solid #000', width: 45, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Ket</th>
+                            <th rowSpan="2" style={{ border: '1px solid #000', width: 30 }}>#</th>
+                          </tr>
+                          <tr>
+                            {actors.map((actor, aIdx) => (
+                              <th key={aIdx} style={{ border: '1px solid #000', padding: '6px 4px', fontWeight: 'normal', width: 60, minWidth: 60, verticalAlign: 'top', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{actor}</th>
+                            ))}
+                            <th style={{ border: '1px solid #000', width: 100, fontWeight: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Persyaratan</th>
+                            <th style={{ border: '1px solid #000', width: 55, fontWeight: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Waktu</th>
+                            <th style={{ border: '1px solid #000', width: 85, fontWeight: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>Output</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pageItems.map(({ step, originalIndex: idx, isContinuation }) => {
+                            if (step.isNoteRow) {
+                              return (
+                                <tr key={idx}>
+                                  <td colSpan={6 + Math.max(1, actors.length)} style={{ border: '1px solid #000', padding: '4px 8px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                                    {step.keteranganText}
+                                  </td>
+                                  <td style={{ border: '1px solid #000', padding: 4, verticalAlign: 'middle' }}></td>
+                                </tr>
+                              );
+                            }
+                            return (
+                              <tr key={idx}>
+                                <td style={{ border: '1px solid #000', padding: 4, verticalAlign: 'middle', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{isContinuation ? '' : idx + 1}</td>
+                                <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step.uraian}</td>
+                                {actors.map((_, aIdx) => {
+                                  const nodeTypes = step.nodes && step.nodes[aIdx] ? (Array.isArray(step.nodes[aIdx]) ? step.nodes[aIdx] : [step.nodes[aIdx]]) : [];
+                                  return (
+                                    <td key={aIdx} style={{ border: '1px solid #000', padding: '6px 4px', position: 'relative', width: 60, verticalAlign: 'middle', boxSizing: 'border-box' }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '2px 0', minHeight: '100%', width: '100%' }}>
+                                        {nodeTypes.map((type, symIdx) => {
+                                          const symbolId = `docx-prev-symbol-${idx}-${aIdx}-${symIdx}`;
+                                          if (type === 'kapsul') {
+                                            return <svg key={symIdx} id={symbolId} width="40" height="20" viewBox="0 0 40 20" style={{ display: 'block' }}><rect x="2" y="2" width="36" height="16" rx="8" ry="8" fill="#F6A04D" stroke="#000" strokeWidth="1.5" /></svg>;
+                                          } else if (type === 'belah_ketupat') {
+                                            return <svg key={symIdx} id={symbolId} width="40" height="20" viewBox="0 0 40 20" style={{ display: 'block' }}><polygon points="20,2 38,10 20,18 2,10" fill="#F6A04D" stroke="#000" strokeWidth="1.5" /></svg>;
+                                          }
+                                          return <svg key={symIdx} id={symbolId} width="40" height="20" viewBox="0 0 40 20" style={{ display: 'block' }}><rect x="2" y="2" width="36" height="16" fill="#F6A04D" stroke="#000" strokeWidth="1.5" /></svg>;
+                                        })}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                                <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step.mutuBaku?.persyaratan}</td>
+                                <td style={{ border: '1px solid #000', padding: '4px 2px', verticalAlign: 'middle', textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step.mutuBaku?.waktu}</td>
+                                <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step.mutuBaku?.output}</td>
+                                <td style={{ border: '1px solid #000', padding: '4px 2px', verticalAlign: 'middle', textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step.mutuBaku?.keterangan}</td>
+                                <td style={{ border: '1px solid #000', padding: 4, verticalAlign: 'middle' }}></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {isLastFlowchartPage && (
+                      <div style={{ marginTop: 24, width: 280, marginLeft: 'auto', textAlign: 'center' }}>
+                        <div style={{ fontSize: '10.5pt', fontWeight: 'bold', lineHeight: 1.3, textTransform: 'uppercase', whiteSpace: 'pre-line' }}>
+                          {sigTitle}
+                        </div>
+                        <div style={{ minHeight: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '8px 0' }}>
+                          {docData.signatureImage && (
+                            <img src={docData.signatureImage} alt="Cap & Tanda Tangan" style={{ maxHeight: 80, maxWidth: 260, objectFit: 'contain' }} />
+                          )}
+                        </div>
+                        <div style={{ fontSize: '11pt', fontWeight: 'bold', textTransform: 'uppercase', textDecoration: 'underline' }}>
+                          {sigName}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            pageGroups.map((pageComponents, pageIndex) => {
+              const isFirstPage = pageIndex === 0;
+              const isLastPage = pageIndex === pageGroups.length - 1;
+              const pageNum = pageIndex + 1;
+
+              return (
+                <div
+                  key={pageIndex}
+                  className="a4-paper-sheet"
+                  style={{
+                    width: '210mm',
+                    minHeight: '297mm',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+                    padding: '20mm 15mm 24mm 15mm',
+                    boxSizing: 'border-box',
+                    position: 'relative',
+                    color: '#000000',
+                    fontSize: '11pt',
+                    fontFamily: 'Arial, sans-serif',
+                  }}
+                >
+                  {isFirstPage && (
+                    <div style={{ marginBottom: 18 }}>
+                      <h1
+                        style={{
+                          fontSize: '14pt',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          textTransform: 'uppercase',
+                          margin: '0 0 10px 0',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        STANDAR PELAYANAN PUBLIK
+                      </h1>
+                      <h2
+                        style={{
+                          fontSize: '11pt',
+                          fontWeight: 'bold',
+                          textTransform: 'uppercase',
+                          margin: 0,
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        JENIS LAYANAN : {docData.serviceType || 'LEGALISASI'}
+                      </h2>
+                    </div>
+                  )}
+
+                  {pageComponents.length > 0 && (
+                    <table
+                      className="sp-table"
+                      style={{ border: '1px solid #000000', borderCollapse: 'collapse' }}
+                    >
+                      <thead>
+                        <tr>
+                          <th style={{ width: '6%', border: '1px solid #000000' }}>NO</th>
+                          <th style={{ width: '30%', border: '1px solid #000000' }}>KOMPONEN</th>
+                          <th style={{ width: '64%', border: '1px solid #000000' }}>URAIAN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pageComponents.map((item) => (
+                          <tr key={item.id}>
+                            <td
+                              style={{
+                                border: '1px solid #000000',
+                                padding: '8px 10px',
+                                textAlign: 'center',
+                                verticalAlign: 'top',
+                              }}
+                            >
+                              {!item.isContinuation && item.order ? `${item.order}.` : ''}
+                            </td>
+                            <td
+                              style={{
+                                border: '1px solid #000000',
+                                padding: '8px 10px',
+                                fontWeight: 600,
+                                verticalAlign: 'top',
+                              }}
+                            >
+                              {!item.isContinuation ? item.name : ''}
+                            </td>
+                            <td
+                              style={{
+                                border: '1px solid #000000',
+                                padding: '8px 10px',
+                                paddingLeft: item.indentMm ? `${item.indentMm}mm` : '10px',
+                                verticalAlign: 'top',
+                                overflowWrap: 'break-word',
+                                wordBreak: 'break-word',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: item.uraian || '' }}
+                            />
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {isLastPage && (
+                    <div
+                      style={{
+                        marginTop: 36,
+                        marginLeft: 'auto',
+                        width: 360,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '10.5pt',
+                          fontWeight: 'bold',
+                          lineHeight: 1.3,
+                          textTransform: 'uppercase',
+                          whiteSpace: 'pre-line',
+                        }}
+                      >
+                        {sigTitle}
+                      </div>
+                      <div
+                        style={{
+                          minHeight: 80,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '8px 0',
+                        }}
+                      >
+                        {docData.signatureImage && (
+                          <img
+                            src={docData.signatureImage}
+                            alt="Cap & Tanda Tangan"
+                            style={{ maxHeight: 90, maxWidth: 280, objectFit: 'contain' }}
+                          />
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11pt',
+                          fontWeight: 'bold',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {sigName}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
