@@ -12,10 +12,10 @@ export const TopBar = ({
   return (
     <div className="top-bar">
       <div className="top-bar-left">
-        {/* APP NAME: Documents */}
-        <div className="app-logo" onClick={onLogoClick} title="Beranda Documents">
-          <FileText size={24} color="#1a73e8" />
-          <span>Documents</span>
+        {/* APP BRANDING & LOGO */}
+        <div className="app-logo" onClick={onLogoClick} title="Beranda SP & SOP Maker" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <img src="/app-logo.png" alt="SP & SOP Maker Logo" style={{ height: 28, width: 28, objectFit: 'contain', borderRadius: 4 }} />
+          <span style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '15px', letterSpacing: '-0.2px' }}>SP & SOP Maker</span>
         </div>
 
         {/* DOCUMENT TITLE CARD CONTAINER */}

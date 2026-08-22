@@ -27,8 +27,8 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'SP & SOP Maker',
-    icon: path.join(__dirname, '../frontend/public/logobanjarnegara.webp'),
+    title: 'SP & SOP Maker - BKPSDM',
+    icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
