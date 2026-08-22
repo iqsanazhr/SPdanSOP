@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, CheckCircle2, Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import appLogo from '../assets/app-logo.png';
 
 export const TopBar = ({
   docTitle,
@@ -14,7 +15,7 @@ export const TopBar = ({
       <div className="top-bar-left">
         {/* APP BRANDING & LOGO */}
         <div className="app-logo" onClick={onLogoClick} title="Beranda SP & SOP Maker" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-          <img src="/app-logo.png" alt="SP & SOP Maker Logo" style={{ height: 28, width: 28, objectFit: 'contain', borderRadius: 4 }} />
+          <img src={appLogo} alt="SP & SOP Maker Logo" style={{ height: 28, width: 28, objectFit: 'contain', borderRadius: 4 }} />
           <span style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '15px', letterSpacing: '-0.2px' }}>SP & SOP Maker</span>
         </div>
 

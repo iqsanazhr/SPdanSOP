@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { downloadDocxDocument, exportDocxFromHtml } from '../api/client.js';
+import defaultLogo from '../assets/logobanjarnegara.webp';
 
 function parseHtmlBlocks(html) {
   if (!html) return [];
@@ -652,7 +653,7 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                       <td style={{ border: '1px solid #000', width: '30%', textAlign: 'center', padding: 10 }}>
                         <div style={{ width: 80, height: 80, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <img 
-                            src={identity.logoImage || '/logobanjarnegara.webp'} 
+                            src={identity.logoImage || defaultLogo} 
                             alt="Logo Banjarnegara" 
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                           />

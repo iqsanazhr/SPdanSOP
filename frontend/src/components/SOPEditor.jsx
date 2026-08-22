@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
+import defaultLogo from '../assets/logobanjarnegara.webp';
 
 const KapsulIcon = () => <svg width="24" height="14" viewBox="0 0 24 14"><rect x="1" y="1" width="22" height="12" rx="6" ry="6" fill="#F6A04D" stroke="#000" strokeWidth="1.5" /></svg>;
 const KotakIcon = () => <svg width="24" height="14" viewBox="0 0 24 14"><rect x="1" y="1" width="22" height="12" fill="#F6A04D" stroke="#000" strokeWidth="1.5" /></svg>;
@@ -1261,7 +1262,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
                 <td style={{ border: '1px solid #000', width: '30%', textAlign: 'center', padding: 10 }}>
                   <div style={{ width: 80, height: 80, margin: '0 auto', position: 'relative' }}>
                     <img 
-                      src={identity.logoImage || '/logobanjarnegara.webp'} 
+                      src={identity.logoImage || defaultLogo} 
                       alt="Logo Banjarnegara" 
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     />
