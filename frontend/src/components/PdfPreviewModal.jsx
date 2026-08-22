@@ -73,6 +73,42 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
 
       setExportProgress('Membangun dokumen PDF...');
 
+      // Konversi semua gambar di lembar dokumen menjadi Base64 mandiri agar tidak pernah broken di Playwright
+      const inlinedSheetsHtml = [];
+      for (const sheet of sheets) {
+        const clone = sheet.cloneNode(true);
+        const images = Array.from(clone.querySelectorAll('img'));
+        for (const img of images) {
+          const src = img.getAttribute('src');
+          if (!src || src.startsWith('data:image')) continue;
+
+          try {
+            const originalImg = sheet.querySelector(`img[src="${src}"]`) || img;
+            const canvas = window.document.createElement('canvas');
+            canvas.width = originalImg.naturalWidth || originalImg.width || 120;
+            canvas.height = originalImg.naturalHeight || originalImg.height || 120;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(originalImg, 0, 0, canvas.width, canvas.height);
+            const base64Url = canvas.toDataURL('image/png');
+            img.setAttribute('src', base64Url);
+          } catch (e) {
+            try {
+              const res = await fetch(src);
+              const blob = await res.blob();
+              const reader = new FileReader();
+              const base64Data = await new Promise((resolve) => {
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+              img.setAttribute('src', base64Data);
+            } catch (fetchErr) {
+              console.error('Failed to inline image to base64:', src, fetchErr);
+            }
+          }
+        }
+        inlinedSheetsHtml.push(clone.outerHTML);
+      }
+
       // Susun HTML lengkap dengan style cetak resmi
       const fullHtml = `<!DOCTYPE html>
 <html>
@@ -115,7 +151,7 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
   </style>
 </head>
 <body>
-  ${sheets.map((s) => s.outerHTML).join('\n')}
+  ${inlinedSheetsHtml.join('\n')}
 </body>
 </html>`;
 

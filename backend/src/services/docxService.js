@@ -350,19 +350,29 @@ function buildSopIdentityTable(document) {
   }
 
   const identity = sopContent.identity || {};
-  const logoBuffer = getAssetBuffer('logo_banjarnegara.png');
+  let activeLogoBuffer = null;
+  if (identity.logoImage && identity.logoImage.startsWith('data:image')) {
+    try {
+      const base64Data = identity.logoImage.split(',')[1];
+      activeLogoBuffer = Buffer.from(base64Data, 'base64');
+    } catch (e) {
+      activeLogoBuffer = getAssetBuffer('logo_banjarnegara.png');
+    }
+  } else {
+    activeLogoBuffer = getAssetBuffer('logo_banjarnegara.png');
+  }
 
   const colIdentityWidths = [5200, 10000]; // Total 15200 dxa
   const headerLeftChildren = [];
 
-  if (logoBuffer) {
+  if (activeLogoBuffer) {
     headerLeftChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 60 },
         children: [
           new ImageRun({
-            data: logoBuffer,
+            data: activeLogoBuffer,
             transformation: { width: 65, height: 65 },
             type: 'png',
           }),
