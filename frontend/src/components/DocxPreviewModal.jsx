@@ -179,7 +179,7 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
     });
   }, [steps]);
 
-  const FLOWCHART_PAGE_CAPACITY = 590;
+  const FLOWCHART_PAGE_CAPACITY = 460;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 

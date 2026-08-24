@@ -1146,9 +1146,9 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 590px (fills sheet completely with a safe 30px buffer above footer at 757px).
+  // Total printable height capacity is 460px to ensure rows never overlap the bottom footer.
   // Signature block height is ~160px.
-  const FLOWCHART_PAGE_CAPACITY = 590;
+  const FLOWCHART_PAGE_CAPACITY = 460;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
