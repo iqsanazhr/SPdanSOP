@@ -1146,9 +1146,9 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 420px to ensure rows have generous clearance above the bottom footer.
+  // Total printable height capacity is 490px (fills sheet with 9-11 steps while keeping safe clearance above footer).
   // Signature block height is ~160px.
-  const FLOWCHART_PAGE_CAPACITY = 420;
+  const FLOWCHART_PAGE_CAPACITY = 490;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
@@ -1164,28 +1164,28 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 110);
-      return Math.max(38, noteLines * 17 + 16);
+      const noteLines = countTextLines(step.keteranganText || '', 130);
+      return Math.max(28, noteLines * 15 + 10);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 30);
-    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 16);
-    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 8);
-    const outLines    = countTextLines(step.mutuBaku?.output || '', 12);
-    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 6);
+    const uraianLines = countTextLines(step.uraian || '', 36);
+    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
+    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
+    const outLines    = countTextLines(step.mutuBaku?.output || '', 14);
+    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 8);
     const maxTextLines = Math.max(uraianLines, reqLines, timeLines, outLines, ketLines);
 
-    let maxShapeH = 24;
+    let maxShapeH = 20;
     if (step.nodes) {
       Object.values(step.nodes).forEach(arr => {
         if (Array.isArray(arr) && arr.length > 1) {
-          maxShapeH = Math.max(maxShapeH, arr.length * 22 + (arr.length - 1) * 10);
+          maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 8);
         }
       });
     }
 
-    const textH = maxTextLines * 18 + 16;
-    return Math.max(40, textH, maxShapeH + 12);
+    const textH = maxTextLines * 15 + 10;
+    return Math.max(35, textH, maxShapeH + 8);
   };
 
   const flowchartPages = useMemo(() => {
