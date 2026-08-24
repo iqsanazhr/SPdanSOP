@@ -958,10 +958,51 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
         const fromScaleY    = fromSheetRect.height > 0 ? fromSheetRect.height / 793.70 : 1;
         const toScaleY      = toSheetRect.height > 0 ? toSheetRect.height / 793.70 : 1;
 
-        let fromTableBottom = 793.70 - 40;
-        if (fromTable && fromSheetRect.height > 0) {
+        // Cek apakah ada baris catatan di Halaman Asal di bawah conn.from.s
+        const fromPageItems = flowchartPages[fromPageIdx] || [];
+        let exitNoteEl = null;
+        for (const item of fromPageItems) {
+          if (item.originalIndex > conn.from.s && item.step.isNoteRow) {
+            const el = document.getElementById(`sop-noterow-${item.originalIndex}`);
+            if (el) {
+              exitNoteEl = el;
+              break;
+            }
+          }
+        }
+
+        let fromY2 = 793.70 - 40;
+        let fromP2 = 'bottom';
+        if (exitNoteEl) {
+          const exitNoteRect = exitNoteEl.getBoundingClientRect();
+          fromY2 = (exitNoteRect.top - fromSheetRect.top) / fromScaleY;
+          fromP2 = 'top';
+        } else if (fromTable && fromSheetRect.height > 0) {
           const fromTableRect = fromTable.getBoundingClientRect();
-          fromTableBottom = (fromTableRect.bottom - fromSheetRect.top) / fromScaleY;
+          fromY2 = (fromTableRect.bottom - fromSheetRect.top) / fromScaleY;
+        }
+
+        // Segmen Keluar (Exit) pada Lembar Asal
+        newCoords.push({
+          x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
+          x2: toCoords.x,   y2: fromY2,       p2: fromP2,
+          fromS: conn.from.s, toS: conn.to.s,
+          isCrossPage: true,
+          crossType: 'exit',
+          id: `${idx}-exit`
+        });
+
+        // Cek apakah ada baris catatan di Halaman Tujuan di atas conn.to.s
+        const toPageItems = flowchartPages[toPageIdx] || [];
+        let entryNoteEl = null;
+        for (const item of toPageItems) {
+          if (item.originalIndex < conn.to.s && item.step.isNoteRow) {
+            const el = document.getElementById(`sop-noterow-${item.originalIndex}`);
+            if (el) {
+              entryNoteEl = el;
+              break;
+            }
+          }
         }
 
         let toTbodyTop = 125;
@@ -973,25 +1014,40 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
           toTbodyTop = (toTableRect.top - toSheetRect.top) / toScaleY;
         }
 
-        // Segmen Keluar (Exit) pada Lembar Asal (berbelok di dalam tabel ke kolom target toCoords.x lalu mentok ke bawah)
-        newCoords.push({
-          x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
-          x2: toCoords.x,   y2: fromTableBottom, p2: 'bottom',
-          fromS: conn.from.s, toS: conn.to.s,
-          isCrossPage: true,
-          crossType: 'exit',
-          id: `${idx}-exit`
-        });
+        if (entryNoteEl) {
+          const entryNoteRect = entryNoteEl.getBoundingClientRect();
+          const entryNoteTop = (entryNoteRect.top - toSheetRect.top) / toScaleY;
+          const entryNoteBottom = (entryNoteRect.bottom - toSheetRect.top) / toScaleY;
 
-        // Segmen Masuk (Entry) pada Lembar Tujuan (mulai dari border atas baris data pertama / tbody)
-        newCoords.push({
-          x1: toCoords.x, y1: toTbodyTop, p1: 'top',
-          x2: toCoords.x, y2: toCoords.y, p2: conn.to.port,
-          fromS: conn.from.s, toS: conn.to.s,
-          isCrossPage: true,
-          crossType: 'entry',
-          id: `${idx}-entry`
-        });
+          // Segmen Masuk 1: Dari atas tabel ke border atas baris keterangan
+          newCoords.push({
+            x1: toCoords.x, y1: toTbodyTop, p1: 'top',
+            x2: toCoords.x, y2: entryNoteTop, p2: 'top',
+            fromS: conn.from.s, toS: conn.to.s,
+            isCrossPage: true,
+            crossType: 'entry',
+            id: `${idx}-entry-top`
+          });
+
+          // Segmen Masuk 2: Dari border bawah baris keterangan ke Bentuk B
+          newCoords.push({
+            x1: toCoords.x, y1: entryNoteBottom, p1: 'bottom',
+            x2: toCoords.x, y2: toCoords.y,      p2: conn.to.port,
+            fromS: conn.from.s, toS: conn.to.s,
+            isCrossPage: false,
+            id: `${idx}-entry-bottom`
+          });
+        } else {
+          // Segmen Masuk normal
+          newCoords.push({
+            x1: toCoords.x, y1: toTbodyTop, p1: 'top',
+            x2: toCoords.x, y2: toCoords.y, p2: conn.to.port,
+            fromS: conn.from.s, toS: conn.to.s,
+            isCrossPage: true,
+            crossType: 'entry',
+            id: `${idx}-entry`
+          });
+        }
       }
     });
 

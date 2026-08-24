@@ -495,27 +495,79 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
               const toTable   = toSheet.querySelector('table');
               const toTbody   = toTable ? toTable.querySelector('tbody') : null;
 
-              const fromTableBottom = fromTable 
-                ? (fromTable.getBoundingClientRect().bottom - fromSheetRect.top) / scale1Y 
-                : 793.70 - 40;
+              const fromPageItems = flowchartPages[fromPageIdx] || [];
+              let exitNoteEl = null;
+              for (const item of fromPageItems) {
+                if (item.originalIndex > conn.from.s && item.step.isNoteRow) {
+                  const el = window.document.getElementById(`docx-prev-noterow-${item.originalIndex}`);
+                  if (el) {
+                    exitNoteEl = el;
+                    break;
+                  }
+                }
+              }
+
+              let fromTableBottom = 793.70 - 40;
+              let fromP2 = 'bottom';
+              if (exitNoteEl) {
+                const exitNoteRect = exitNoteEl.getBoundingClientRect();
+                fromTableBottom = (exitNoteRect.top - fromSheetRect.top) / scale1Y;
+                fromP2 = 'top';
+              } else if (fromTable) {
+                fromTableBottom = (fromTable.getBoundingClientRect().bottom - fromSheetRect.top) / scale1Y;
+              }
+
+              // Exit segment on Page N
+              coords.push({
+                x1, y1, p1,
+                x2, y2: fromTableBottom, p2: fromP2,
+                fromS: conn.from.s, toS: conn.to.s,
+                isCrossPage: true, crossType: 'exit'
+              });
+
+              // Check note row on destination page
+              const toPageItems = flowchartPages[toPageIdx] || [];
+              let entryNoteEl = null;
+              for (const item of toPageItems) {
+                if (item.originalIndex < conn.to.s && item.step.isNoteRow) {
+                  const el = window.document.getElementById(`docx-prev-noterow-${item.originalIndex}`);
+                  if (el) {
+                    entryNoteEl = el;
+                    break;
+                  }
+                }
+              }
 
               const toTbodyTop = toTbody 
                 ? ((toTbody.getBoundingClientRect().top - toSheetRect.top) / scale2Y)
                 : (toTable ? ((toTable.getBoundingClientRect().top - toSheetRect.top) / scale2Y) : 69);
 
-              coords.push({
-                x1, y1, p1,
-                x2, y2: fromTableBottom, p2: 'bottom',
-                fromS: conn.from.s, toS: conn.to.s,
-                isCrossPage: true, crossType: 'exit'
-              });
+              if (entryNoteEl) {
+                const entryNoteRect = entryNoteEl.getBoundingClientRect();
+                const entryNoteTop = (entryNoteRect.top - toSheetRect.top) / scale2Y;
+                const entryNoteBottom = (entryNoteRect.bottom - toSheetRect.top) / scale2Y;
 
-              coords.push({
-                x1: x2, y1: toTbodyTop, p1: 'top',
-                x2, y2, p2,
-                fromS: conn.from.s, toS: conn.to.s,
-                isCrossPage: true, crossType: 'entry'
-              });
+                coords.push({
+                  x1: x2, y1: toTbodyTop, p1: 'top',
+                  x2, y2: entryNoteTop, p2: 'top',
+                  fromS: conn.from.s, toS: conn.to.s,
+                  isCrossPage: true, crossType: 'entry'
+                });
+
+                coords.push({
+                  x1: x2, y1: entryNoteBottom, p1: 'bottom',
+                  x2, y2, p2,
+                  fromS: conn.from.s, toS: conn.to.s,
+                  isCrossPage: false
+                });
+              } else {
+                coords.push({
+                  x1: x2, y1: toTbodyTop, p1: 'top',
+                  x2, y2, p2,
+                  fromS: conn.from.s, toS: conn.to.s,
+                  isCrossPage: true, crossType: 'entry'
+                });
+              }
             }
           }
         }
