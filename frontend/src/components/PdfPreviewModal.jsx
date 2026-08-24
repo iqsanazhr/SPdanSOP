@@ -215,7 +215,7 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
     });
   }, [steps]);
 
-  const FLOWCHART_PAGE_CAPACITY = 530;
+  const FLOWCHART_PAGE_CAPACITY = 500;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
@@ -231,11 +231,11 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 130);
-      return Math.max(28, noteLines * 15 + 10);
+      const noteLines = countTextLines(step.keteranganText || '', 125);
+      return Math.max(30, noteLines * 16 + 10);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 36);
+    const uraianLines = countTextLines(step.uraian || '', 34);
     const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
     const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
     const outLines    = countTextLines(step.mutuBaku?.output || '', 14);
@@ -251,8 +251,8 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
       });
     }
 
-    const textH = maxTextLines * 15 + 10;
-    return Math.max(35, textH, maxShapeH + 8);
+    const textH = maxTextLines * 16 + 10;
+    return Math.max(37, textH, maxShapeH + 10);
   };
 
   const flowchartPages = React.useMemo(() => {

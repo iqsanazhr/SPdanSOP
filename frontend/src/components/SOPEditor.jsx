@@ -1146,9 +1146,9 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 530px (fills sheet completely with ~10-12 steps).
+  // Total printable height capacity is 500px (fills sheet completely with ~10-11 steps and strictly cuts before footer).
   // Signature block height is ~160px.
-  const FLOWCHART_PAGE_CAPACITY = 530;
+  const FLOWCHART_PAGE_CAPACITY = 500;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
@@ -1164,11 +1164,11 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 130);
-      return Math.max(28, noteLines * 15 + 10);
+      const noteLines = countTextLines(step.keteranganText || '', 125);
+      return Math.max(30, noteLines * 16 + 10);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 36);
+    const uraianLines = countTextLines(step.uraian || '', 34);
     const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
     const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
     const outLines    = countTextLines(step.mutuBaku?.output || '', 14);
@@ -1184,8 +1184,8 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
       });
     }
 
-    const textH = maxTextLines * 15 + 10;
-    return Math.max(35, textH, maxShapeH + 8);
+    const textH = maxTextLines * 16 + 10;
+    return Math.max(37, textH, maxShapeH + 10);
   };
 
   const flowchartPages = useMemo(() => {
