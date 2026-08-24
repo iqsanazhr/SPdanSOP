@@ -215,7 +215,7 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
     });
   }, [steps]);
 
-  const FLOWCHART_PAGE_CAPACITY = 490;
+  const FLOWCHART_PAGE_CAPACITY = 530;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
