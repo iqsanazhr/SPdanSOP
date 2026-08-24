@@ -279,17 +279,9 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
     }
 
     if (currentPage.length > 0) {
+      pages.push(currentPage);
       if (currentH + SIGNATURE_HEIGHT > FLOWCHART_PAGE_CAPACITY) {
-        if (currentPage.length > 1) {
-          const lastItem = currentPage.pop();
-          pages.push(currentPage);
-          pages.push([lastItem]);
-        } else {
-          pages.push(currentPage);
-          pages.push([]);
-        }
-      } else {
-        pages.push(currentPage);
+        pages.push([]);
       }
     }
 

@@ -1212,17 +1212,9 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
     }
 
     if (currentPage.length > 0) {
+      pages.push(currentPage);
       if (currentH + SIGNATURE_HEIGHT > FLOWCHART_PAGE_CAPACITY) {
-        if (currentPage.length > 1) {
-          const lastItem = currentPage.pop();
-          pages.push(currentPage);
-          pages.push([lastItem]); // Pindahkan baris terakhir bersama blok tanda tangan agar halaman baru tidak kosong
-        } else {
-          pages.push(currentPage);
-          pages.push([]); // Jika hanya ada 1 baris panjang, tempatkan tanda tangan di halaman baru
-        }
-      } else {
-        pages.push(currentPage);
+        pages.push([]); // Buat halaman baru untuk tanda tangan jika tidak muat, tanpa memindahkan baris yang sudah muat
       }
     }
 
