@@ -874,14 +874,80 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
       const toPageIdx = stepToPage[conn.to.s];
 
       if (fromPageIdx !== undefined && fromPageIdx === toPageIdx) {
-        const item = {
-          x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
-          x2: toCoords.x,   y2: toCoords.y,   p2: conn.to.port,
-          fromS: conn.from.s, toS: conn.to.s,
-          isCrossPage: false,
-          id: idx
-        };
-        newCoords.push(item);
+        const minS = Math.min(conn.from.s, conn.to.s);
+        const maxS = Math.max(conn.from.s, conn.to.s);
+        
+        let firstNoteEl = null;
+        let lastNoteEl = null;
+
+        for (let sIdx = minS + 1; sIdx < maxS; sIdx++) {
+          if (normalizedSteps[sIdx]?.isNoteRow) {
+            const el = document.getElementById(`sop-noterow-${sIdx}`);
+            if (el) {
+              if (!firstNoteEl) firstNoteEl = el;
+              lastNoteEl = el;
+            }
+          }
+        }
+
+        if (firstNoteEl && lastNoteEl && fromSheet) {
+          const sheetRect = fromSheet.getBoundingClientRect();
+          const scaleY = sheetRect.height > 0 ? sheetRect.height / 793.70 : 1;
+
+          if (conn.from.s < conn.to.s) {
+            const firstRect = firstNoteEl.getBoundingClientRect();
+            const lastRect = lastNoteEl.getBoundingClientRect();
+            const noteTop = (firstRect.top - sheetRect.top) / scaleY;
+            const noteBottom = (lastRect.bottom - sheetRect.top) / scaleY;
+
+            // Segmen Atas: Menuju border atas baris keterangan
+            newCoords.push({
+              x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
+              x2: toCoords.x,   y2: noteTop,      p2: 'top',
+              fromS: conn.from.s, toS: conn.to.s,
+              isCrossPage: false,
+              id: `${idx}-note-top`
+            });
+
+            // Segmen Bawah: Mulai dari border bawah baris keterangan menuju Bentuk B
+            newCoords.push({
+              x1: toCoords.x, y1: noteBottom, p1: 'bottom',
+              x2: toCoords.x, y2: toCoords.y, p2: conn.to.port,
+              fromS: conn.from.s, toS: conn.to.s,
+              isCrossPage: false,
+              id: `${idx}-note-bottom`
+            });
+          } else {
+            const firstRect = firstNoteEl.getBoundingClientRect();
+            const lastRect = lastNoteEl.getBoundingClientRect();
+            const noteTop = (firstRect.top - sheetRect.top) / scaleY;
+            const noteBottom = (lastRect.bottom - sheetRect.top) / scaleY;
+
+            newCoords.push({
+              x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
+              x2: toCoords.x,   y2: noteBottom,   p2: 'bottom',
+              fromS: conn.from.s, toS: conn.to.s,
+              isCrossPage: false,
+              id: `${idx}-note-bottom`
+            });
+
+            newCoords.push({
+              x1: toCoords.x, y1: noteTop,    p1: 'top',
+              x2: toCoords.x, y2: toCoords.y, p2: conn.to.port,
+              fromS: conn.from.s, toS: conn.to.s,
+              isCrossPage: false,
+              id: `${idx}-note-top`
+            });
+          }
+        } else {
+          newCoords.push({
+            x1: fromCoords.x, y1: fromCoords.y, p1: conn.from.port,
+            x2: toCoords.x,   y2: toCoords.y,   p2: conn.to.port,
+            fromS: conn.from.s, toS: conn.to.s,
+            isCrossPage: false,
+            id: idx
+          });
+        }
       } else {
         const fromTable = fromSheet.querySelector('table');
         const toTable   = toSheet.querySelector('table');
@@ -1661,7 +1727,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
                     {pageItems.map(({ step, originalIndex: idx, isContinuation }) => {
                       if (step.isNoteRow) {
                         return (
-                          <tr key={`${step.id || idx}-note`}>
+                          <tr key={`${step.id || idx}-note`} id={`sop-noterow-${idx}`}>
                             <td 
                               colSpan={6 + Math.max(1, actors.length)} 
                               style={{ border: '1px solid #000', padding: '4px 8px', background: '#ffffff', textAlign: 'left', verticalAlign: 'middle' }}

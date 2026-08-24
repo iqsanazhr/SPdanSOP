@@ -445,7 +445,68 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
             const toPageIdx = stepToPage[conn.to.s];
 
             if (fromPageIdx !== undefined && fromPageIdx === toPageIdx) {
-              coords.push({ x1, y1, p1, x2, y2, p2, fromS: conn.from.s, toS: conn.to.s, isCrossPage: false });
+              const minS = Math.min(conn.from.s, conn.to.s);
+              const maxS = Math.max(conn.from.s, conn.to.s);
+              
+              let firstNoteEl = null;
+              let lastNoteEl = null;
+
+              for (let sIdx = minS + 1; sIdx < maxS; sIdx++) {
+                if (steps[sIdx]?.isNoteRow) {
+                  const el = window.document.getElementById(`prev-noterow-${sIdx}`);
+                  if (el) {
+                    if (!firstNoteEl) firstNoteEl = el;
+                    lastNoteEl = el;
+                  }
+                }
+              }
+
+              if (firstNoteEl && lastNoteEl && fromSheet) {
+                const sheetRect = fromSheet.getBoundingClientRect();
+                const scaleY = sheetRect.height > 0 ? sheetRect.height / 793.70 : 1;
+
+                if (conn.from.s < conn.to.s) {
+                  const firstRect = firstNoteEl.getBoundingClientRect();
+                  const lastRect = lastNoteEl.getBoundingClientRect();
+                  const noteTop = (firstRect.top - sheetRect.top) / scaleY;
+                  const noteBottom = (lastRect.bottom - sheetRect.top) / scaleY;
+
+                  coords.push({
+                    x1, y1, p1,
+                    x2, y2: noteTop, p2: 'top',
+                    fromS: conn.from.s, toS: conn.to.s,
+                    isCrossPage: false
+                  });
+
+                  coords.push({
+                    x1: x2, y1: noteBottom, p1: 'bottom',
+                    x2, y2, p2,
+                    fromS: conn.from.s, toS: conn.to.s,
+                    isCrossPage: false
+                  });
+                } else {
+                  const firstRect = firstNoteEl.getBoundingClientRect();
+                  const lastRect = lastNoteEl.getBoundingClientRect();
+                  const noteTop = (firstRect.top - sheetRect.top) / scaleY;
+                  const noteBottom = (lastRect.bottom - sheetRect.top) / scaleY;
+
+                  coords.push({
+                    x1, y1, p1,
+                    x2, y2: noteBottom, p2: 'bottom',
+                    fromS: conn.from.s, toS: conn.to.s,
+                    isCrossPage: false
+                  });
+
+                  coords.push({
+                    x1: x2, y1: noteTop, p1: 'top',
+                    x2, y2, p2,
+                    fromS: conn.from.s, toS: conn.to.s,
+                    isCrossPage: false
+                  });
+                }
+              } else {
+                coords.push({ x1, y1, p1, x2, y2, p2, fromS: conn.from.s, toS: conn.to.s, isCrossPage: false });
+              }
             } else {
               const fromTable = fromSheet.querySelector('table');
               const toTable   = toSheet.querySelector('table');
@@ -875,7 +936,7 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
                           {pageItems.map(({ step, originalIndex: idx, isContinuation }) => {
                             if (step.isNoteRow) {
                               return (
-                                <tr key={idx}>
+                                <tr key={idx} id={`prev-noterow-${idx}`}>
                                   <td colSpan={6 + Math.max(1, actors.length)} style={{ border: '1px solid #000', padding: '4px 8px', textAlign: 'left', verticalAlign: 'middle', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                     {step.keteranganText}
                                   </td>
