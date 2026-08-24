@@ -2001,13 +2001,13 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
               {/* TOMBOL TAMBAH BARIS & BLOK PENANDATANGAN HANYA DI HALAMAN FLOWCHART TERAKHIR */}
               {isLastFlowchartPage && (
                 <>
-                  <div className="no-print" style={{ marginTop: 12, textAlign: 'center' }}>
+                  <div className="no-print" style={{ marginTop: 20, marginBottom: 12, textAlign: 'center' }}>
                     <button className="modern-btn modern-btn-primary" onClick={addStep}>
                       <Plus size={18} /> Tambah Baris Prosedur
                     </button>
                   </div>
 
-                  <div id="sop-sec-ttd" style={{ marginTop: 18, width: 280, marginLeft: 'auto', textAlign: 'center' }}>
+                  <div id="sop-sec-ttd" style={{ marginTop: 36, width: 280, marginLeft: 'auto', textAlign: 'center' }}>
                     <AutoResizingTextarea
                       value={docData.signatoryTitle || 'KEPALA BADAN KEPEGAWAIAN\nDAN PENGEMBANGAN SUMBER DAYA MANUSIA'}
                       onChange={e => onDocChange({ ...docData, signatoryTitle: e.target.value })}

@@ -1045,7 +1045,7 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                     )}
 
                     {isLastFlowchartPage && (
-                      <div style={{ marginTop: 24, width: 280, marginLeft: 'auto', textAlign: 'center' }}>
+                      <div style={{ marginTop: 36, width: 280, marginLeft: 'auto', textAlign: 'center' }}>
                         <div style={{ fontSize: '10.5pt', fontWeight: 'bold', lineHeight: 1.3, textTransform: 'uppercase', whiteSpace: 'pre-line' }}>
                           {sigTitle}
                         </div>
