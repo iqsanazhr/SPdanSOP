@@ -1146,12 +1146,11 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 660px.
-  // Signature block height is ~130px. If last page accumulated height + SIGNATURE_HEIGHT exceeds 660px,
-  // push an additional sheet dedicated for the signature block so it never touches the footer.
-  const FLOWCHART_PAGE_CAPACITY = 660;
-  const FLOWCHART_HEADER_HEIGHT = 65;
-  const SIGNATURE_HEIGHT = 130;
+  // Total printable height capacity is 480px to ensure a generous safe margin above the footer (757px).
+  // Signature block height is ~160px (button + title + stamp + signatory name).
+  const FLOWCHART_PAGE_CAPACITY = 480;
+  const FLOWCHART_HEADER_HEIGHT = 90;
+  const SIGNATURE_HEIGHT = 160;
 
   const countTextLines = (text, charsPerLine) => {
     if (!text) return 1;
@@ -1165,15 +1164,15 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 140);
-      return Math.max(28, noteLines * 15 + 10);
+      const noteLines = countTextLines(step.keteranganText || '', 120);
+      return Math.max(34, noteLines * 16 + 14);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 38);
-    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
-    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
-    const outLines    = countTextLines(step.mutuBaku?.output || '', 15);
-    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 8);
+    const uraianLines = countTextLines(step.uraian || '', 32);
+    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 16);
+    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 8);
+    const outLines    = countTextLines(step.mutuBaku?.output || '', 12);
+    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 6);
     const maxTextLines = Math.max(uraianLines, reqLines, timeLines, outLines, ketLines);
 
     let maxShapeH = 20;
@@ -1185,8 +1184,8 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
       });
     }
 
-    const textH = maxTextLines * 15 + 10;
-    return Math.max(28, textH, maxShapeH + 8);
+    const textH = maxTextLines * 17 + 12;
+    return Math.max(36, textH, maxShapeH + 12);
   };
 
   const flowchartPages = useMemo(() => {
