@@ -388,6 +388,18 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
       });
 
       connections.forEach((conn) => {
+        // Lewati koneksi jika melintasi baris catatan/keterangan
+        const minS = Math.min(conn.from.s, conn.to.s);
+        const maxS = Math.max(conn.from.s, conn.to.s);
+        let hasNoteBetween = false;
+        for (let sIdx = minS + 1; sIdx < maxS; sIdx++) {
+          if (steps[sIdx]?.isNoteRow) {
+            hasNoteBetween = true;
+            break;
+          }
+        }
+        if (hasNoteBetween) return;
+
         const fromSub = conn.from.subIndex !== undefined ? conn.from.subIndex : 0;
         const toSub = conn.to.subIndex !== undefined ? conn.to.subIndex : 0;
         const fromEl = window.document.getElementById(`prev-symbol-${conn.from.s}-${conn.from.a}-${fromSub}`);

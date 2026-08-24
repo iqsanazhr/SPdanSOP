@@ -308,13 +308,32 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
     });
   };
 
+  const hasNoteRowBetween = (steps, s1, s2) => {
+    if (!Array.isArray(steps)) return false;
+    const minS = Math.min(s1, s2);
+    const maxS = Math.max(s1, s2);
+    for (let i = minS + 1; i < maxS; i++) {
+      if (steps[i]?.isNoteRow) return true;
+    }
+    return false;
+  };
+
   const insertNoteRow = (afterIndex) => {
     const newSteps = [...normalizedSteps];
-    // Shift connections for steps coming after afterIndex
-    let newConns = normalizedConnections.map(c => ({
-      from: { ...c.from, s: c.from.s > afterIndex ? c.from.s + 1 : c.from.s },
-      to: { ...c.to, s: c.to.s > afterIndex ? c.to.s + 1 : c.to.s }
-    }));
+    // Putus koneksi yang melintasi baris pemisah (afterIndex)
+    const crossesSplit = (c) => {
+      const minS = Math.min(c.from.s, c.to.s);
+      const maxS = Math.max(c.from.s, c.to.s);
+      return minS <= afterIndex && maxS > afterIndex;
+    };
+
+    // Filter keluar koneksi yang melintasi afterIndex, dan lakukan index shift untuk step setelah afterIndex
+    let newConns = normalizedConnections
+      .filter(c => !crossesSplit(c))
+      .map(c => ({
+        from: { ...c.from, s: c.from.s > afterIndex ? c.from.s + 1 : c.from.s },
+        to: { ...c.to, s: c.to.s > afterIndex ? c.to.s + 1 : c.to.s }
+      }));
 
     newSteps.splice(afterIndex + 1, 0, {
       id: `note-${Date.now()}`,
@@ -550,16 +569,20 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
         const targetPort = targetCircle.getAttribute('data-port');
 
         if (targetS !== dragState.startS || targetA !== dragState.startA || targetSubIndex !== dragState.startSubIndex) {
-          const exists = normalizedConnections.some(c => 
-            c.from.s === dragState.startS && c.from.a === dragState.startA && c.from.subIndex === dragState.startSubIndex && c.from.port === dragState.startPort &&
-            c.to.s === targetS && c.to.a === targetA && c.to.subIndex === targetSubIndex && c.to.port === targetPort
-          );
-          if (!exists) {
-            const newConns = [...normalizedConnections, { 
-              from: { s: dragState.startS, a: dragState.startA, subIndex: dragState.startSubIndex, port: dragState.startPort }, 
-              to: { s: targetS, a: targetA, subIndex: targetSubIndex, port: targetPort } 
-            }];
-            updateContent({ ...content, connections: newConns });
+          // Jangan buat koneksi jika melintasi baris catatan/keterangan
+          const isCrossingNote = hasNoteRowBetween(normalizedSteps, dragState.startS, targetS);
+          if (!isCrossingNote) {
+            const exists = normalizedConnections.some(c => 
+              c.from.s === dragState.startS && c.from.a === dragState.startA && c.from.subIndex === dragState.startSubIndex && c.from.port === dragState.startPort &&
+              c.to.s === targetS && c.to.a === targetA && c.to.subIndex === targetSubIndex && c.to.port === targetPort
+            );
+            if (!exists) {
+              const newConns = [...normalizedConnections, { 
+                from: { s: dragState.startS, a: dragState.startA, subIndex: dragState.startSubIndex, port: dragState.startPort }, 
+                to: { s: targetS, a: targetA, subIndex: targetSubIndex, port: targetPort } 
+              }];
+              updateContent({ ...content, connections: newConns });
+            }
           }
         }
       }
@@ -572,7 +595,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
       window.removeEventListener('pointermove', handleWindowPointerMove);
       window.removeEventListener('pointerup', handleWindowPointerUp);
     };
-  }, [dragState, checkAutoScroll, updateDragTargetFromPoint, stopAutoScroll, normalizedConnections, content, updateContent]);
+  }, [dragState, checkAutoScroll, updateDragTargetFromPoint, stopAutoScroll, normalizedConnections, normalizedSteps, content, updateContent]);
 
   const handlePortPointerMove = (e) => {
     if (dragState) {
@@ -600,16 +623,19 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
          const targetPort = targetCircle.getAttribute('data-port');
          
          if (targetS !== dragState.startS || targetA !== dragState.startA || targetSubIndex !== dragState.startSubIndex) {
-           const exists = normalizedConnections.some(c => 
-              c.from.s === dragState.startS && c.from.a === dragState.startA && c.from.subIndex === dragState.startSubIndex && c.from.port === dragState.startPort &&
-              c.to.s === targetS && c.to.a === targetA && c.to.subIndex === targetSubIndex && c.to.port === targetPort
-           );
-           if (!exists) {
-              const newConns = [...normalizedConnections, { 
-                  from: { s: dragState.startS, a: dragState.startA, subIndex: dragState.startSubIndex, port: dragState.startPort }, 
-                  to: { s: targetS, a: targetA, subIndex: targetSubIndex, port: targetPort } 
-              }];
-              updateContent({ ...content, connections: newConns });
+           const isCrossingNote = hasNoteRowBetween(normalizedSteps, dragState.startS, targetS);
+           if (!isCrossingNote) {
+             const exists = normalizedConnections.some(c => 
+                c.from.s === dragState.startS && c.from.a === dragState.startA && c.from.subIndex === dragState.startSubIndex && c.from.port === dragState.startPort &&
+                c.to.s === targetS && c.to.a === targetA && c.to.subIndex === targetSubIndex && c.to.port === targetPort
+             );
+             if (!exists) {
+                const newConns = [...normalizedConnections, { 
+                    from: { s: dragState.startS, a: dragState.startA, subIndex: dragState.startSubIndex, port: dragState.startPort }, 
+                    to: { s: targetS, a: targetA, subIndex: targetSubIndex, port: targetPort } 
+                }];
+                updateContent({ ...content, connections: newConns });
+             }
            }
          }
       }
@@ -853,6 +879,9 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
     });
 
     normalizedConnections.forEach((conn, idx) => {
+      // Lewati koneksi jika melintasi baris catatan/keterangan
+      if (hasNoteRowBetween(normalizedSteps, conn.from.s, conn.to.s)) return;
+
       const fromSub = conn.from.subIndex !== undefined ? conn.from.subIndex : 0;
       const toSub   = conn.to.subIndex !== undefined ? conn.to.subIndex : 0;
       const fromEl = document.getElementById(`symbol-${conn.from.s}-${conn.from.a}-${fromSub}`);
