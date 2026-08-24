@@ -1076,23 +1076,47 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 580px.
-  // Signature block height is ~140px. If last page accumulated height + SIGNATURE_HEIGHT exceeds 580px,
+  // Total printable height capacity is 540px.
+  // Signature block height is ~140px. If last page accumulated height + SIGNATURE_HEIGHT exceeds 540px,
   // push an additional sheet dedicated for the signature block so it never touches the footer.
-  const FLOWCHART_PAGE_CAPACITY = 580;
+  const FLOWCHART_PAGE_CAPACITY = 540;
   const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 140;
 
-  const splitTextByLength = (text, maxLength) => {
-    if (!text || text.length <= maxLength) return [text, ''];
-    let cutIdx = maxLength;
-    for (let i = maxLength; i > Math.max(10, maxLength - 20); i--) {
-      if (/[\s\n.,;]/.test(text[i])) {
-        cutIdx = i;
-        break;
-      }
+  const countTextLines = (text, charsPerLine) => {
+    if (!text) return 1;
+    const lines = String(text).split('\n');
+    let total = 0;
+    lines.forEach(l => {
+      total += Math.max(1, Math.ceil((l.length || 1) / charsPerLine));
+    });
+    return Math.max(1, total);
+  };
+
+  const computeStepRowHeight = (step) => {
+    if (step.isNoteRow) {
+      const noteLines = countTextLines(step.keteranganText || '', 100);
+      return Math.max(38, noteLines * 18 + 16);
     }
-    return [text.substring(0, cutIdx), text.substring(cutIdx).trimStart()];
+
+    const uraianLines = countTextLines(step.uraian || '', 30);
+    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 14);
+    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 8);
+    const outLines    = countTextLines(step.mutuBaku?.output || '', 12);
+    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 6);
+    const maxTextLines = Math.max(uraianLines, reqLines, timeLines, outLines, ketLines);
+
+    let maxShapeH = 20;
+    if (step.nodes) {
+      Object.values(step.nodes).forEach(arr => {
+        if (Array.isArray(arr) && arr.length > 1) {
+          maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 10);
+        }
+      });
+    }
+
+    const textH = maxTextLines * 18 + 14;
+    return Math.max(45, textH, maxShapeH + 14);
   };
 
   const flowchartPages = useMemo(() => {
@@ -1104,23 +1128,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
     for (let idx = 0; idx < normalizedSteps.length; idx++) {
       const step = normalizedSteps[idx];
-      
-      const uraianLines = Math.max(1, Math.ceil((step.uraian || '').length / 30));
-      const reqLines = Math.max(1, Math.ceil((step.mutuBaku?.persyaratan || '').length / 14));
-      const outLines = Math.max(1, Math.ceil((step.mutuBaku?.output || '').length / 12));
-      const maxTextLines = Math.max(uraianLines, reqLines, outLines);
-
-      let maxShapeH = 20;
-      if (step.nodes) {
-        Object.values(step.nodes).forEach(arr => {
-          if (Array.isArray(arr) && arr.length > 1) {
-            maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 10);
-          }
-        });
-      }
-
-      const textH = maxTextLines * 16 + 12;
-      const rowH = Math.max(45, textH, maxShapeH + 12);
+      const rowH = computeStepRowHeight(step);
 
       if (currentH + rowH <= FLOWCHART_PAGE_CAPACITY) {
         currentPage.push({ step, originalIndex: idx, isContinuation: false });
