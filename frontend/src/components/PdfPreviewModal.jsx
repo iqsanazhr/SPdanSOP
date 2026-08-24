@@ -215,9 +215,9 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
     });
   }, [steps]);
 
-  const FLOWCHART_PAGE_CAPACITY = 540;
+  const FLOWCHART_PAGE_CAPACITY = 660;
   const FLOWCHART_HEADER_HEIGHT = 65;
-  const SIGNATURE_HEIGHT = 140;
+  const SIGNATURE_HEIGHT = 130;
 
   const countTextLines = (text, charsPerLine) => {
     if (!text) return 1;
@@ -231,28 +231,28 @@ export const PdfPreviewModal = ({ isOpen, document: docData, onClose }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 100);
-      return Math.max(38, noteLines * 18 + 16);
+      const noteLines = countTextLines(step.keteranganText || '', 140);
+      return Math.max(28, noteLines * 15 + 10);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 30);
-    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 14);
-    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 8);
-    const outLines    = countTextLines(step.mutuBaku?.output || '', 12);
-    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 6);
+    const uraianLines = countTextLines(step.uraian || '', 38);
+    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
+    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
+    const outLines    = countTextLines(step.mutuBaku?.output || '', 15);
+    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 8);
     const maxTextLines = Math.max(uraianLines, reqLines, timeLines, outLines, ketLines);
 
     let maxShapeH = 20;
     if (step.nodes) {
       Object.values(step.nodes).forEach(arr => {
         if (Array.isArray(arr) && arr.length > 1) {
-          maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 10);
+          maxShapeH = Math.max(maxShapeH, arr.length * 20 + (arr.length - 1) * 8);
         }
       });
     }
 
-    const textH = maxTextLines * 18 + 14;
-    return Math.max(45, textH, maxShapeH + 14);
+    const textH = maxTextLines * 15 + 10;
+    return Math.max(28, textH, maxShapeH + 8);
   };
 
   const flowchartPages = React.useMemo(() => {
