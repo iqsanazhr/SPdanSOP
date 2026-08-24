@@ -815,6 +815,12 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                   overflow: 'hidden',
                 }}
               >
+                {/* HEADER DOKUMEN SOP */}
+                {identity.headerText && (
+                  <div style={{ position: 'absolute', top: 10, left: '15mm', right: '15mm', height: 24, display: 'flex', alignItems: 'center', borderBottom: '1px solid #000', fontSize: '8.5pt', color: '#000', zIndex: 15 }}>
+                    {identity.headerText}
+                  </div>
+                )}
                 <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', margin: '0 auto' }}>
                   <tbody>
                     <tr>
@@ -890,6 +896,14 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                     </tr>
                   </tbody>
                 </table>
+
+                {/* PAGE FOOTER DOKUMEN SOP */}
+                <div style={{ position: 'absolute', bottom: 10, left: '15mm', right: '15mm', height: 26, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: identity.footerText ? '1px solid #000' : 'none', fontSize: '8.5pt', color: '#000' }}>
+                  <div>{identity.footerText || ''}</div>
+                  <div style={{ marginLeft: 16, whiteSpace: 'nowrap', fontWeight: 'bold', fontSize: '9pt' }}>
+                    Halaman 1 dari {1 + flowchartPages.length}
+                  </div>
+                </div>
               </div>
 
               {/* HALAMAN FLOWCHART */}
@@ -906,7 +920,7 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                       minHeight: '210mm', 
                       background: '#ffffff', 
                       boxShadow: '0 4px 14px rgba(0,0,0,0.3)', 
-                      padding: '12mm 15mm 15mm 15mm', 
+                      padding: '14mm 15mm 15mm 15mm', 
                       boxSizing: 'border-box',
                       position: 'relative',
                       fontSize: '10pt',
@@ -915,6 +929,12 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                       margin: '0 auto 20px auto',
                     }}
                   >
+                    {/* HEADER DOKUMEN SOP */}
+                    {identity.headerText && (
+                      <div style={{ position: 'absolute', top: 10, left: '15mm', right: '15mm', height: 24, display: 'flex', alignItems: 'center', borderBottom: '1px solid #000', fontSize: '8.5pt', color: '#000', zIndex: 15 }}>
+                        {identity.headerText}
+                      </div>
+                    )}
                     <svg 
                       viewBox="0 0 1122.52 793.70"
                       style={{
@@ -1033,6 +1053,14 @@ export const DocxPreviewModal = ({ isOpen, document: docData, onClose }) => {
                         </div>
                       </div>
                     )}
+
+                    {/* PAGE FOOTER DOKUMEN SOP */}
+                    <div style={{ position: 'absolute', bottom: 10, left: '15mm', right: '15mm', height: 26, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: identity.footerText ? '1px solid #000' : 'none', fontSize: '8.5pt', color: '#000', zIndex: 15 }}>
+                      <div>{identity.footerText || ''}</div>
+                      <div style={{ marginLeft: 16, whiteSpace: 'nowrap', fontWeight: 'bold', fontSize: '9pt' }}>
+                        Halaman {pageIdx + 2} dari {totalSopPages}
+                      </div>
+                    </div>
                   </div>
                 );
               })}

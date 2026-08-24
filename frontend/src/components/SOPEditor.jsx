@@ -232,6 +232,20 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
     });
   };
 
+  const updateHeader = (value) => {
+    updateContent({
+      ...content,
+      identity: { ...identity, headerText: value }
+    });
+  };
+
+  const updateFooter = (value) => {
+    updateContent({
+      ...content,
+      identity: { ...identity, footerText: value }
+    });
+  };
+
   const updateActor = (index, value) => {
     const newActors = [...actors];
     newActors[index] = value;
@@ -1373,7 +1387,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
             backgroundColor: '#ffffff',
             boxShadow: '0 1px 4px 0 rgba(60,64,67,0.15), 0 4px 14px 3px rgba(60,64,67,0.12)',
             border: '1px solid #dadce0',
-            padding: '12mm 15mm 15mm 15mm',
+            padding: '14mm 15mm 15mm 15mm',
             boxSizing: 'border-box',
             position: 'relative',
             color: '#000000',
@@ -1386,6 +1400,17 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
             overflow: 'hidden',
           }}
         >
+          {/* HEADER DOKUMEN SOP (EDITABLE) */}
+          <div className="sop-sheet-header no-print-border" style={{ position: 'absolute', top: 10, left: '15mm', right: '15mm', height: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: identity.headerText ? '1px solid #e5e7eb' : '1px dashed #d1d5db', fontSize: '8.5pt', color: '#6b7280', zIndex: 5 }}>
+            <input
+              type="text"
+              placeholder="Header dokumen (klik untuk mengetik)..."
+              value={identity.headerText || ''}
+              onChange={e => updateHeader(e.target.value)}
+              style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '8.5pt', fontFamily: 'inherit', color: '#374151' }}
+            />
+          </div>
+
           <table id="sop-sec-identitas" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', margin: '0 auto' }}>
             <tbody>
               <tr>
@@ -1637,9 +1662,18 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
             </tbody>
           </table>
 
-          {/* PAGE FOOTER DOKUMEN SOP */}
-          <div className="page-number-footer" style={{ bottom: 12 }}>
-            Halaman 1 dari {1 + flowchartPages.length}
+          {/* PAGE FOOTER DOKUMEN SOP (EDITABLE) */}
+          <div className="sop-sheet-footer no-print-border" style={{ position: 'absolute', bottom: 10, left: '15mm', right: '15mm', height: 26, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: identity.footerText ? '1px solid #e5e7eb' : '1px dashed #d1d5db', fontSize: '8.5pt', color: '#6b7280', zIndex: 5 }}>
+            <input
+              type="text"
+              placeholder="Footer dokumen (klik untuk mengetik)..."
+              value={identity.footerText || ''}
+              onChange={e => updateFooter(e.target.value)}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '8.5pt', fontFamily: 'inherit', color: '#374151' }}
+            />
+            <div style={{ marginLeft: 16, whiteSpace: 'nowrap', fontWeight: 'bold', fontSize: '9pt', color: '#374151' }}>
+              Halaman 1 dari {1 + flowchartPages.length}
+            </div>
           </div>
         </div>
 
@@ -1661,7 +1695,7 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
                 backgroundColor: '#ffffff',
                 boxShadow: '0 1px 4px 0 rgba(60,64,67,0.15), 0 4px 14px 3px rgba(60,64,67,0.12)',
                 border: '1px solid #dadce0',
-                padding: '12mm 15mm 15mm 15mm',
+                padding: '14mm 15mm 15mm 15mm',
                 boxSizing: 'border-box',
                 position: 'relative',
                 color: '#000000',
@@ -1670,6 +1704,16 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
                 overflow: 'hidden',
               }}
             >
+              {/* HEADER DOKUMEN SOP (EDITABLE) */}
+              <div className="sop-sheet-header no-print-border" style={{ position: 'absolute', top: 10, left: '15mm', right: '15mm', height: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: identity.headerText ? '1px solid #e5e7eb' : '1px dashed #d1d5db', fontSize: '8.5pt', color: '#6b7280', zIndex: 15 }}>
+                <input
+                  type="text"
+                  placeholder="Header dokumen (klik untuk mengetik)..."
+                  value={identity.headerText || ''}
+                  onChange={e => updateHeader(e.target.value)}
+                  style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '8.5pt', fontFamily: 'inherit', color: '#374151' }}
+                />
+              </div>
               {/* SVG Connector Overlay per lembar Halaman Flowchart */}
               <svg 
                 viewBox="0 0 1122.52 793.70"
@@ -2066,9 +2110,18 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
                 </>
               )}
 
-              {/* PAGE FOOTER DOKUMEN SOP */}
-              <div className="page-number-footer" style={{ bottom: 12 }}>
-                Halaman {pageIdx + 2} dari {totalSopPages}
+              {/* PAGE FOOTER DOKUMEN SOP (EDITABLE) */}
+              <div className="sop-sheet-footer no-print-border" style={{ position: 'absolute', bottom: 10, left: '15mm', right: '15mm', height: 26, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: identity.footerText ? '1px solid #e5e7eb' : '1px dashed #d1d5db', fontSize: '8.5pt', color: '#6b7280', zIndex: 15 }}>
+                <input
+                  type="text"
+                  placeholder="Footer dokumen (klik untuk mengetik)..."
+                  value={identity.footerText || ''}
+                  onChange={e => updateFooter(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '8.5pt', fontFamily: 'inherit', color: '#374151' }}
+                />
+                <div style={{ marginLeft: 16, whiteSpace: 'nowrap', fontWeight: 'bold', fontSize: '9pt', color: '#374151' }}>
+                  Halaman {pageIdx + 2} dari {totalSopPages}
+                </div>
               </div>
             </div>
           );
