@@ -1146,10 +1146,10 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
   };
 
   // Paginate Flowchart Steps into Fixed Height A4 Landscape Sheets (297mm x 210mm)
-  // Total printable height capacity is 480px to ensure a generous safe margin above the footer (757px).
-  // Signature block height is ~160px (button + title + stamp + signatory name).
-  const FLOWCHART_PAGE_CAPACITY = 480;
-  const FLOWCHART_HEADER_HEIGHT = 90;
+  // Total printable height capacity is 590px (fills sheet completely with a safe 30px buffer above footer at 757px).
+  // Signature block height is ~160px.
+  const FLOWCHART_PAGE_CAPACITY = 590;
+  const FLOWCHART_HEADER_HEIGHT = 65;
   const SIGNATURE_HEIGHT = 160;
 
   const countTextLines = (text, charsPerLine) => {
@@ -1164,15 +1164,15 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
   const computeStepRowHeight = (step) => {
     if (step.isNoteRow) {
-      const noteLines = countTextLines(step.keteranganText || '', 120);
-      return Math.max(34, noteLines * 16 + 14);
+      const noteLines = countTextLines(step.keteranganText || '', 130);
+      return Math.max(28, noteLines * 15 + 10);
     }
 
-    const uraianLines = countTextLines(step.uraian || '', 32);
-    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 16);
-    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 8);
-    const outLines    = countTextLines(step.mutuBaku?.output || '', 12);
-    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 6);
+    const uraianLines = countTextLines(step.uraian || '', 36);
+    const reqLines    = countTextLines(step.mutuBaku?.persyaratan || '', 18);
+    const timeLines   = countTextLines(step.mutuBaku?.waktu || '', 10);
+    const outLines    = countTextLines(step.mutuBaku?.output || '', 14);
+    const ketLines    = countTextLines(step.mutuBaku?.keterangan || '', 8);
     const maxTextLines = Math.max(uraianLines, reqLines, timeLines, outLines, ketLines);
 
     let maxShapeH = 20;
@@ -1184,8 +1184,8 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
       });
     }
 
-    const textH = maxTextLines * 17 + 12;
-    return Math.max(36, textH, maxShapeH + 12);
+    const textH = maxTextLines * 15 + 10;
+    return Math.max(30, textH, maxShapeH + 8);
   };
 
   const flowchartPages = useMemo(() => {
@@ -1213,8 +1213,14 @@ const SOPEditor = ({ document: docData, zoom, onDocChange }) => {
 
     if (currentPage.length > 0) {
       if (currentH + SIGNATURE_HEIGHT > FLOWCHART_PAGE_CAPACITY) {
-        pages.push(currentPage);
-        pages.push([]); // Empty page for signature block
+        if (currentPage.length > 1) {
+          const lastItem = currentPage.pop();
+          pages.push(currentPage);
+          pages.push([lastItem]); // Pindahkan baris terakhir bersama blok tanda tangan agar halaman baru tidak kosong
+        } else {
+          pages.push(currentPage);
+          pages.push([]); // Jika hanya ada 1 baris panjang, tempatkan tanda tangan di halaman baru
+        }
       } else {
         pages.push(currentPage);
       }
