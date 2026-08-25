@@ -60,6 +60,7 @@ export const MenuBar = ({
   onAddHorizontalRule,
   onShowWordCount,
   onAuditComponents,
+  hasDoc = true,
 }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);
@@ -114,29 +115,29 @@ export const MenuBar = ({
                 <FolderOpen size={14} /> Open...
               </span>
             </button>
-            <button className="dropdown-item" onClick={() => handleAction(onMakeCopy)}>
+            <button className="dropdown-item" onClick={() => handleAction(onMakeCopy)} disabled={!hasDoc}>
               <span className="dropdown-item-label">
                 <Copy size={14} /> Make a Copy
               </span>
             </button>
             <div className="dropdown-divider" />
-            <button className="dropdown-item" onClick={() => handleAction(onSave)}>
+            <button className="dropdown-item" onClick={() => handleAction(onSave)} disabled={!hasDoc}>
               <span className="dropdown-item-label">
                 <Save size={14} /> Save
               </span>
               <span className="dropdown-shortcut">Ctrl+S</span>
             </button>
-            <button className="dropdown-item" onClick={() => handleAction(onExportDocx)}>
+            <button className="dropdown-item" onClick={() => handleAction(onExportDocx)} disabled={!hasDoc}>
               <span className="dropdown-item-label">
                 <FileText size={14} color="#2b579a" /> Download Word (.docx)
               </span>
             </button>
-            <button className="dropdown-item" onClick={() => handleAction(onExportPdf)}>
+            <button className="dropdown-item" onClick={() => handleAction(onExportPdf)} disabled={!hasDoc}>
               <span className="dropdown-item-label">
                 <Download size={14} /> Download PDF
               </span>
             </button>
-            <button className="dropdown-item" onClick={() => handleAction(onExportPdf)}>
+            <button className="dropdown-item" onClick={() => handleAction(onExportPdf)} disabled={!hasDoc}>
               <span className="dropdown-item-label">
                 <Printer size={14} /> Print / Preview
               </span>
@@ -146,7 +147,8 @@ export const MenuBar = ({
             <button
               className="dropdown-item"
               onClick={() => handleAction(onDeleteDoc)}
-              style={{ color: '#d93025' }}
+              disabled={!hasDoc}
+              style={{ color: !hasDoc ? '#9aa0a6' : '#d93025' }}
             >
               <span className="dropdown-item-label">
                 <Trash2 size={14} /> Delete Document

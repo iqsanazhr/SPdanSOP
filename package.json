@@ -10,9 +10,9 @@
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "electron:dev": "concurrently -n \"BACKEND,FRONTEND,ELECTRON\" -c \"blue,green,magenta\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "npm --prefix frontend run build",
-    "dist": "npm run build && electron-builder --win --dir",
-    "dist:exe": "npm run build && electron-builder --win nsis"
+    "build": "node ./frontend/node_modules/vite/bin/vite.js build frontend",
+    "dist": "node ./frontend/node_modules/vite/bin/vite.js build frontend && node ./node_modules/electron-builder/cli.js --win --dir",
+    "dist:exe": "node ./frontend/node_modules/vite/bin/vite.js build frontend && node ./node_modules/electron-builder/cli.js --win nsis"
   },
   "build": {
     "appId": "com.bkpsdm.sp-sop-maker",

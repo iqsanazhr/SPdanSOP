@@ -1354,3 +1354,236 @@ input::-webkit-inner-spin-button {
   -webkit-appearance: none !important;
   margin: 0 !important;
 }
+
+/* =========================================================
+   WELCOME DASHBOARD & EMPTY STATE VIEWPORT
+   ========================================================= */
+.empty-viewport {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: calc(100vh - 84px);
+  background: #f8f9fa;
+  overflow-y: auto;
+}
+
+.welcome-dashboard {
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: fadeInDashboard 0.3s ease-out;
+}
+
+@keyframes fadeInDashboard {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.welcome-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08));
+}
+
+.welcome-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #202124;
+  letter-spacing: -0.5px;
+}
+
+.welcome-subtitle {
+  font-size: 14.5px;
+  color: #5f6368;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.welcome-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a73e8;
+  background: #e8f0fe;
+  border-radius: 12px;
+}
+
+.welcome-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .welcome-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.welcome-action-card {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.08);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.welcome-action-card:hover {
+  transform: translateY(-4px);
+  border-color: #1a73e8;
+  box-shadow: 0 8px 24px rgba(26, 115, 232, 0.14);
+}
+
+.welcome-action-card.sop-card:hover {
+  border-color: #e37400;
+  box-shadow: 0 8px 24px rgba(227, 116, 0, 0.14);
+}
+
+.welcome-action-card.folder-card:hover {
+  border-color: #5f6368;
+  box-shadow: 0 8px 24px rgba(60, 64, 67, 0.15);
+}
+
+.card-icon-wrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.card-icon-wrapper.sp-icon {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.card-icon-wrapper.sop-icon {
+  background: #fef7e0;
+  color: #e37400;
+}
+
+.card-icon-wrapper.folder-icon {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex-grow: 1;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #202124;
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  font-size: 12.5px;
+  color: #5f6368;
+  line-height: 1.45;
+  margin-bottom: 20px;
+  flex-grow: 1;
+}
+
+.card-action-btn {
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.card-action-btn.primary-sp {
+  background: #1a73e8;
+  color: #ffffff;
+}
+
+.card-action-btn.primary-sp:hover {
+  background: #1557b0;
+}
+
+.card-action-btn.primary-sop {
+  background: #e37400;
+  color: #ffffff;
+}
+
+.card-action-btn.primary-sop:hover {
+  background: #b05700;
+}
+
+.card-action-btn.secondary-btn {
+  background: #f1f3f4;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+}
+
+.card-action-btn.secondary-btn:hover {
+  background: #e8eaed;
+}
+
+.welcome-footer-shortcuts {
+  margin-top: 32px;
+  font-size: 12.5px;
+  color: #70757a;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.welcome-footer-shortcuts code {
+  background: #e8eaed;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #202124;
+}
+

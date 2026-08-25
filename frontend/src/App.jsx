@@ -25,6 +25,8 @@ import { ShortcutsModal } from './components/ShortcutsModal.jsx';
 import { ToastContainer } from './components/Toast.jsx';
 import { ConfirmModal } from './components/ConfirmModal.jsx';
 import { ZoomControls } from './components/ZoomControls.jsx';
+import { FileText, FileSpreadsheet, FolderOpen } from 'lucide-react';
+import appLogo from './assets/app-logo.png';
 
 export const App = () => {
   const [doc, setDoc] = useState(null);
@@ -118,9 +120,12 @@ export const App = () => {
     addToast('Perubahan dikembalikan (Redo)', 'info');
   };
 
+  const [loadingInitial, setLoadingInitial] = useState(true);
+
   // Load active document from localStorage or fetch latest document
   const initDocument = async () => {
     try {
+      setLoadingInitial(true);
       const savedDocId = localStorage.getItem('active_doc_id');
       if (savedDocId) {
         try {
@@ -141,13 +146,14 @@ export const App = () => {
         setDoc(fullDoc);
         localStorage.setItem('active_doc_id', fullDoc.id);
       } else {
-        const newDoc = await createDocument({ title: 'Standar Pelayanan Publik - Legalisasi' });
-        setDoc(newDoc);
-        localStorage.setItem('active_doc_id', newDoc.id);
+        setDoc(null);
+        localStorage.removeItem('active_doc_id');
       }
     } catch (error) {
       console.error('Error loading initial document:', error);
-      addToast('Gagal memuat dokumen, mencoba ulang...', 'error');
+      setDoc(null);
+    } finally {
+      setLoadingInitial(false);
     }
   };
 
@@ -517,6 +523,12 @@ export const App = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleManualSave();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setShowTemplateModal(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setShowOpenDocModal(true);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) {
           e.preventDefault();
@@ -536,6 +548,7 @@ export const App = () => {
 
   // PDF Export: Open preview modal
   const handleExportPdf = () => {
+    if (!doc) return;
     setShowPdfPreviewModal(true);
   };
 
@@ -548,7 +561,8 @@ export const App = () => {
         saveStatus={saveStatus}
         onExportPdf={handleExportPdf}
         onExportDocx={handleExportDocx}
-        onLogoClick={() => setShowOpenDocModal(true)}
+        onLogoClick={() => setDoc(null)}
+        hasDoc={!!doc}
       />
 
       {/* MENU BAR — hidden on print */}
@@ -576,6 +590,7 @@ export const App = () => {
         onAddSignatureBlock={handleAddSignatureBlock}
         onShowWordCount={handleShowWordCount}
         onAuditComponents={handleAuditComponents}
+        hasDoc={!!doc}
       />
 
       {/* TOOLBAR — hidden on print */}
@@ -584,6 +599,7 @@ export const App = () => {
         zoom={zoom}
         onZoomChange={(newZoom) => setZoom(newZoom)}
         onPrint={handleExportPdf}
+        hasDoc={!!doc}
       />
 
       {/* MAIN CONTENT AREA */}
@@ -614,43 +630,113 @@ export const App = () => {
           ) : (
             <DocumentEditor
               document={doc}
-            zoom={zoom}
-            showRuler={showRuler}
-            leftMarginMm={leftMarginMm}
-            rightMarginMm={rightMarginMm}
-            col1WidthPercent={col1WidthPercent}
-            col2WidthPercent={col2WidthPercent}
-            onMarginChange={(left, right) => {
-              setLeftMarginMm(left);
-              setRightMarginMm(right);
-            }}
-            onColumnWidthChange={(col1, col2) => {
-              setCol1WidthPercent(col1);
-              setCol2WidthPercent(col2);
-            }}
-            onUpdateComponentIndent={handleUpdateComponentIndent}
-            onRulerDragEnd={handleRulerDragEnd}
-            onServiceTypeChange={handleServiceTypeChange}
-            onSignatoryTitleChange={handleSignatoryTitleChange}
-            onSignatoryNameChange={handleSignatoryNameChange}
-            onSignatureImageChange={handleSignatureImageChange}
-            onUpdateComponentName={handleUpdateComponentName}
-            onUpdateComponentUraian={handleUpdateComponentUraian}
-            onReorderComponents={handleReorderComponents}
-            onInsertComponentAt={(order) => {
-              setInsertAfterOrder(order);
-              setShowAddCompModal(true);
-            }}
-            onMoveUp={handleMoveUp}
-            onMoveDown={handleMoveDown}
-            onDeleteComponent={handleDeleteComponent}
-            onFocusEditor={(editor) => setActiveEditor(editor)}
-          />
+              zoom={zoom}
+              showRuler={showRuler}
+              leftMarginMm={leftMarginMm}
+              rightMarginMm={rightMarginMm}
+              col1WidthPercent={col1WidthPercent}
+              col2WidthPercent={col2WidthPercent}
+              onMarginChange={(left, right) => {
+                setLeftMarginMm(left);
+                setRightMarginMm(right);
+              }}
+              onColumnWidthChange={(col1, col2) => {
+                setCol1WidthPercent(col1);
+                setCol2WidthPercent(col2);
+              }}
+              onUpdateComponentIndent={handleUpdateComponentIndent}
+              onRulerDragEnd={handleRulerDragEnd}
+              onServiceTypeChange={handleServiceTypeChange}
+              onSignatoryTitleChange={handleSignatoryTitleChange}
+              onSignatoryNameChange={handleSignatoryNameChange}
+              onSignatureImageChange={handleSignatureImageChange}
+              onUpdateComponentName={handleUpdateComponentName}
+              onUpdateComponentUraian={handleUpdateComponentUraian}
+              onReorderComponents={handleReorderComponents}
+              onInsertComponentAt={(order) => {
+                setInsertAfterOrder(order);
+                setShowAddCompModal(true);
+              }}
+              onMoveUp={handleMoveUp}
+              onMoveDown={handleMoveDown}
+              onDeleteComponent={handleDeleteComponent}
+              onFocusEditor={(editor) => setActiveEditor(editor)}
+            />
           )
-        ) : (
-          <div className="document-viewport">
+        ) : loadingInitial ? (
+          <div className="document-viewport empty-viewport">
             <div style={{ padding: 32, color: '#5f6368', fontSize: 14 }}>
-              Memuat dokumen Standar Pelayanan Publik...
+              Memuat data dokumen...
+            </div>
+          </div>
+        ) : (
+          <div className="document-viewport empty-viewport">
+            <div className="welcome-dashboard">
+              <div className="welcome-header">
+                <img src={appLogo} alt="BKPSDM Logo" className="welcome-logo" />
+                <h1 className="welcome-title">SP & SOP Maker</h1>
+                <p className="welcome-subtitle">
+                  Aplikasi Penyusun Dokumen Standar Pelayanan Publik & Standard Operating Procedure
+                </p>
+                <div className="welcome-badge">BKPSDM Kabupaten Banjarnegara</div>
+              </div>
+
+              <div className="welcome-action-grid">
+                {/* Option 1: Buat Dokumen SP */}
+                <div className="welcome-action-card" onClick={() => setShowTemplateModal(true)}>
+                  <div className="card-icon-wrapper sp-icon">
+                    <FileText size={30} />
+                  </div>
+                  <div className="card-content">
+                    <h3 className="card-title">Standar Pelayanan (SP)</h3>
+                    <p className="card-desc">
+                      Buat dokumen Standar Pelayanan dengan 14 Komponen Standar resmi BKPSDM.
+                    </p>
+                    <button className="card-action-btn primary-sp" onClick={(e) => { e.stopPropagation(); setShowTemplateModal(true); }}>
+                      + Buat Dokumen SP
+                    </button>
+                  </div>
+                </div>
+
+                {/* Option 2: Buat Dokumen SOP */}
+                <div className="welcome-action-card sop-card" onClick={() => handleSelectTemplate('sop-template', 'Standard Operating Procedure (SOP) Baru')}>
+                  <div className="card-icon-wrapper sop-icon">
+                    <FileSpreadsheet size={30} />
+                  </div>
+                  <div className="card-content">
+                    <h3 className="card-title">Standard Operating Procedure</h3>
+                    <p className="card-desc">
+                      Buat bagan alur flowchart SOP AP, matriks mutu baku & aktor pelaksana dinamis.
+                    </p>
+                    <button className="card-action-btn primary-sop" onClick={(e) => { e.stopPropagation(); handleSelectTemplate('sop-template', 'Standard Operating Procedure (SOP) Baru'); }}>
+                      + Buat Dokumen SOP
+                    </button>
+                  </div>
+                </div>
+
+                {/* Option 3: Buka Dokumen Tersimpan */}
+                <div className="welcome-action-card folder-card" onClick={() => setShowOpenDocModal(true)}>
+                  <div className="card-icon-wrapper folder-icon">
+                    <FolderOpen size={30} />
+                  </div>
+                  <div className="card-content">
+                    <h3 className="card-title">Buka Arsip Dokumen</h3>
+                    <p className="card-desc">
+                      Buka dan lanjutkan pengeditan dokumen SP atau SOP yang telah tersimpan.
+                    </p>
+                    <button className="card-action-btn secondary-btn" onClick={(e) => { e.stopPropagation(); setShowOpenDocModal(true); }}>
+                      Buka Dokumen
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="welcome-footer-shortcuts">
+                <span>💡 Pintasan Cepat:</span>
+                <code>Ctrl + N</code> Dokumen Baru &nbsp;•&nbsp;
+                <code>Ctrl + O</code> Buka Dokumen &nbsp;•&nbsp;
+                <code>Ctrl + S</code> Simpan Dokumen
+              </div>
             </div>
           </div>
         )}

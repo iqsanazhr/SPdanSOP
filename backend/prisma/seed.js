@@ -60,24 +60,6 @@ async function main() {
   console.log(
     `Created template "${template.title}" with version 1 and ${template.versions[0].components.length} components.`
   );
-
-  const defaultVersion = template.versions[0];
-  const demoDoc = await prisma.document.create({
-    data: {
-      title: 'Standar Pelayanan Publik - Legalisasi',
-      serviceType: 'LEGALISASI',
-      templateId: template.id,
-      components: {
-        create: defaultVersion.components.map((comp) => ({
-          order: comp.order,
-          name: comp.name,
-          uraian: comp.defaultUraian,
-        })),
-      },
-    },
-  });
-
-  console.log(`Created demo document "${demoDoc.title}" (ID: ${demoDoc.id})`);
 }
 
 main()

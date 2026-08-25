@@ -9,6 +9,7 @@ export const TopBar = ({
   onExportPdf,
   onExportDocx,
   onLogoClick,
+  hasDoc = true,
 }) => {
   return (
     <div className="top-bar">
@@ -20,43 +21,51 @@ export const TopBar = ({
         </div>
 
         {/* DOCUMENT TITLE CARD CONTAINER */}
-        <div className="doc-title-card">
-          <input
-            type="text"
-            className="doc-title-input"
-            value={docTitle}
-            onChange={(e) => onTitleChange(e.target.value)}
-            placeholder="Judul Dokumen..."
-          />
-        </div>
+        {hasDoc && (
+          <div className="doc-title-card">
+            <input
+              type="text"
+              className="doc-title-input"
+              value={docTitle}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="Judul Dokumen..."
+            />
+          </div>
+        )}
 
-        <div className={`saved-status ${saveStatus}`}>
-          {saveStatus === 'saving' && (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              <span>Saving...</span>
-            </>
-          )}
-          {saveStatus === 'saved' && (
-            <>
-              <CheckCircle2 size={14} />
-              <span>Saved ✓</span>
-            </>
-          )}
-          {saveStatus === 'unsaved' && <span>Disimpan secara lokal</span>}
-          {saveStatus === 'error' && <span style={{ color: '#d93025' }}>Gagal menyimpan</span>}
-        </div>
+        {hasDoc && (
+          <div className={`saved-status ${saveStatus}`}>
+            {saveStatus === 'saving' && (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Saving...</span>
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <>
+                <CheckCircle2 size={14} />
+                <span>Saved ✓</span>
+              </>
+            )}
+            {saveStatus === 'unsaved' && <span>Disimpan secara lokal</span>}
+            {saveStatus === 'error' && <span style={{ color: '#d93025' }}>Gagal menyimpan</span>}
+          </div>
+        )}
       </div>
 
       <div className="top-bar-right">
-        <button className="btn-secondary" onClick={onExportDocx} title="Download Format Word (.docx)">
-          <FileSpreadsheet size={15} color="#2b579a" />
-          <span>Export Word (.docx)</span>
-        </button>
-        <button className="btn-primary" onClick={onExportPdf} title="Download Format PDF">
-          <Download size={15} />
-          <span>Export PDF</span>
-        </button>
+        {hasDoc && (
+          <>
+            <button className="btn-secondary" onClick={onExportDocx} title="Download Format Word (.docx)">
+              <FileSpreadsheet size={15} color="#2b579a" />
+              <span>Export Word (.docx)</span>
+            </button>
+            <button className="btn-primary" onClick={onExportPdf} title="Download Format PDF">
+              <Download size={15} />
+              <span>Export PDF</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

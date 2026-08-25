@@ -16,7 +16,17 @@ import {
   Outdent,
 } from 'lucide-react';
 
-export const Toolbar = ({ editor, zoom, onZoomChange, onPrint }) => {
+export const Toolbar = ({ editor, zoom, onZoomChange, onPrint, hasDoc = true }) => {
+  if (!hasDoc) {
+    return (
+      <div className="toolbar">
+        <div style={{ fontSize: 12, color: '#70757a' }}>
+          Pilih atau buat dokumen baru untuk memulai pengeditan...
+        </div>
+      </div>
+    );
+  }
+
   if (!editor || editor.isDestroyed) {
     return (
       <div className="toolbar">
